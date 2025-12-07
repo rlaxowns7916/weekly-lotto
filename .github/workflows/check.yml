@@ -1,0 +1,52 @@
+name: 당첨 확인
+
+on:
+  schedule:
+    # 매주 토요일 12:00 UTC (21:00 KST) - 추첨 후
+    - cron: '0 12 * * 6'
+
+  # 수동 실행 가능
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.1'
+
+      - name: 당첨 확인 실행
+        id: check
+        continue-on-error: true
+        env:
+          LOTTO_USERNAME: ${{ secrets.LOTTO_USERNAME }}
+          LOTTO_PASSWORD: ${{ secrets.LOTTO_PASSWORD }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: go run cmd/check/main.go
+
+      - name: 실패 알림 이메일 발송
+        if: steps.check.outcome == 'failure'
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          go run cmd/failure/main.go "당첨 확인" "당첨 확인 중 오류가 발생했습니다. GitHub Actions 로그를 확인해주세요."
+
+      - name: 워크플로우 실패 처리
+        if: steps.check.outcome == 'failure'
+        run: exit 1
