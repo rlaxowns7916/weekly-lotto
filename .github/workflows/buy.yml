@@ -30,23 +30,25 @@ jobs:
         env:
           LOTTO_USERNAME: ${{ secrets.LOTTO_USERNAME }}
           LOTTO_PASSWORD: ${{ secrets.LOTTO_PASSWORD }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          LOTTO_EMAIL_SMTP_HOST: ${{ secrets.LOTTO_EMAIL_SMTP_HOST }}
+          LOTTO_EMAIL_SMTP_PORT: ${{ secrets.LOTTO_EMAIL_SMTP_PORT }}
+          LOTTO_EMAIL_USERNAME: ${{ secrets.LOTTO_EMAIL_USERNAME }}
+          LOTTO_EMAIL_PASSWORD: ${{ secrets.LOTTO_EMAIL_PASSWORD }}
+          LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
+          LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
         run: go run cmd/buy/main.go
 
       - name: 실패 알림 이메일 발송
         if: steps.buy.outcome == 'failure'
         env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          LOTTO_USERNAME: ${{ secrets.LOTTO_USERNAME }}
+          LOTTO_PASSWORD: ${{ secrets.LOTTO_PASSWORD }}
+          LOTTO_EMAIL_SMTP_HOST: ${{ secrets.LOTTO_EMAIL_SMTP_HOST }}
+          LOTTO_EMAIL_SMTP_PORT: ${{ secrets.LOTTO_EMAIL_SMTP_PORT }}
+          LOTTO_EMAIL_USERNAME: ${{ secrets.LOTTO_EMAIL_USERNAME }}
+          LOTTO_EMAIL_PASSWORD: ${{ secrets.LOTTO_EMAIL_PASSWORD }}
+          LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
+          LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
         run: |
           go run cmd/failure/main.go "로또 구매" "로또 구매 중 오류가 발생했습니다. GitHub Actions 로그를 확인해주세요."
 
