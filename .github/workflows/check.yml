@@ -51,7 +51,3 @@ jobs:
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
         run: |
           go run cmd/failure/main.go "당첨 확인" "당첨 확인 중 오류가 발생했습니다. GitHub Actions 로그를 확인해주세요."
-
-      - name: 워크플로우 실패 처리
-        if: steps.check.outcome == 'failure'
-        run: exit 1
