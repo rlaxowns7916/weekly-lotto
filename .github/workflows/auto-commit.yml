@@ -1,0 +1,31 @@
+name: Auto Commit
+
+on:
+  schedule:
+    # 매주 일요일 00:00 UTC (09:00 KST)
+    - cron: '0 0 * * 0'
+
+  # 수동 실행 가능
+  workflow_dispatch:
+
+jobs:
+  auto-commit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update README
+        run: |
+          echo "[AUTO-COMMIT] $(date +'%Y-%m-%d')" >> README.md
+
+      - name: Commit and Push
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md
+          git commit -m "[AUTO-COMMIT] $(date +'%Y-%m-%d')"
+          git push

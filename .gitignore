@@ -35,7 +35,6 @@ go.work.sum
 .claude
 .serena
 CLAUDE.md
-README.md
 spec.md
 go.sum
 .idea
