@@ -48,27 +48,50 @@ export async function login(page: Page): Promise<void> {
         name: loginSelectors.passwordInput.name,
       }).press('Enter');
 
-      // 로그인 완료 대기 - 로그아웃 버튼이 나타날 때까지 대기
-      try {
-        await page.getByRole('button', { name: '로그아웃' }).waitFor({ 
-          state: 'visible', 
-          timeout: 15000 
-        });
+      // 로그인 결과 대기: 로그아웃 버튼(성공) 또는 에러 메시지(실패)
+      const result = await Promise.race([
+        page.getByRole('button', { name: '로그아웃' })
+          .waitFor({ state: 'visible', timeout: 20000 })
+          .then(() => 'success' as const),
+        page.locator('text=아이디 또는 비밀번호를 확인해주세요')
+          .waitFor({ state: 'visible', timeout: 20000 })
+          .then(() => 'wrong_credentials' as const),
+        page.locator('text=비밀번호를 입력하세요')
+          .waitFor({ state: 'visible', timeout: 20000 })
+          .then(() => 'wrong_credentials' as const),
+      ]).catch(() => 'timeout' as const);
+
+      if (result === 'success') {
         console.log('로그인 성공');
-      } catch {
-        // 로그아웃 버튼이 없으면 URL로 재확인
-        const currentUrl = page.url();
-        if (currentUrl.includes('login') || currentUrl.includes('Login')) {
-          throw new Error('로그인 실패: 아이디 또는 비밀번호를 확인해주세요');
-        }
-        console.log('로그인 성공 (URL 확인)');
+        return;
       }
+
+      if (result === 'wrong_credentials') {
+        // 진짜 로그인 실패 - 재시도 의미 없음
+        throw new Error('로그인 실패: 아이디 또는 비밀번호가 틀렸습니다 (재시도 안함)');
+      }
+
+      // 타임아웃 - URL로 재확인
+      const currentUrl = page.url();
+      if (!currentUrl.includes('login') && !currentUrl.includes('Login')) {
+        console.log('로그인 성공 (URL 확인)');
+        return;
+      }
+
+      // 사이트 느림으로 인한 실패 - 재시도 가능
+      throw new Error('로그인 타임아웃: 사이트 응답이 느립니다');
     },
     {
       maxRetries: 3,
       baseDelayMs: 2000,
       maxDelayMs: 10000,
-      shouldRetry: () => true, // 모든 에러에 대해 재시도
+      shouldRetry: (error) => {
+        // 아이디/비밀번호 오류는 재시도 안 함
+        if (error instanceof Error && error.message.includes('재시도 안함')) {
+          return false;
+        }
+        return true;
+      },
     }
   ).catch(async (error) => {
     await saveErrorScreenshot(page, 'login-error');
