@@ -1,40 +1,53 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
+# Node.js
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Test outputs
+test-results/
+playwright-report/
+coverage/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Playwright
+screenshots/
+videos/
+trace.zip
+auth.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+.serena/
+spec.md
+
+# Legacy Go files (to be removed after migration)
+go.sum
+go.work
+go.work.sum
 *.exe
-*.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Code coverage profiles and other test artifacts
 *.out
 coverage.*
 *.coverprofile
 profile.cov
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
-go.work
-go.work.sum
-
-# env file
-.env
-
-# Editor/IDE
-# .idea/
-# .vscode/
-
-.env
-.claude
-.serena
-CLAUDE.md
-spec.md
-go.sum
-.idea
