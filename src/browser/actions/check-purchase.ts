@@ -25,12 +25,8 @@ interface TicketDetails extends PurchasedTicket {
  */
 export async function navigateToPurchaseHistory(page: Page): Promise<void> {
   try {
-    // 전체메뉴 클릭
-    await page.getByRole('button', { name: '전체메뉴' }).click();
-    await page.waitForTimeout(500);
-
-    // 구매/당첨 내역 클릭
-    await page.getByRole('button', { name: '구매/당첨 내역' }).click();
+    // 구매내역 페이지로 직접 이동
+    await page.goto('https://www.dhlottery.co.kr/mypage/mylotteryledger');
     await page.waitForLoadState('networkidle');
 
     // 상세 검색 펼치기

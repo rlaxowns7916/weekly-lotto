@@ -11,7 +11,7 @@ import { saveErrorScreenshot } from '../context.js';
 /**
  * 동행복권 메인 페이지 URL
  */
-const MAIN_PAGE_URL = 'https://dhlottery.co.kr/common.do?method=main';
+const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
 
 /**
  * 메인 페이지에서 최신 당첨 번호 조회
