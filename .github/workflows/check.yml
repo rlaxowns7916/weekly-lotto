@@ -50,5 +50,12 @@ jobs:
           LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
 
+      - name: Debug .env
+        run: |
+          echo "=== .env file ==="
+          cat .env | sed 's/=.*/=***/'
+          echo "=== Password length ==="
+          node --env-file=.env -e "console.log('Length:', process.env.LOTTO_PASSWORD?.length || 'undefined')"
+
       - name: 당첨 확인 실행
         run: npm run check-result
