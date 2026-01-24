@@ -52,3 +52,11 @@ jobs:
 
       - name: 당첨 확인 실행
         run: npm run check-result
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshots
+          path: screenshots/
+          retention-days: 1
