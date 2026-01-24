@@ -1,0 +1,39 @@
+{
+  "name": "weekly-lotto",
+  "version": "1.0.0",
+  "description": "동행복권 로또6/45 자동 구매 및 당첨 확인 시스템",
+  "type": "module",
+  "scripts": {
+    "buy": "node --env-file=.env --import tsx src/commands/buy.ts",
+    "check": "node --env-file=.env --import tsx src/commands/check.ts",
+    "check-result": "node --env-file=.env --import tsx src/commands/check-result.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "lotto",
+    "automation",
+    "playwright"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "nodemailer": "^6.9.16",
+    "playwright": "^1.49.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^22.10.5",
+    "@types/nodemailer": "^6.4.17",
+    "eslint": "^9.18.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.53.1",
+    "vitest": "^2.1.8"
+  }
+}
