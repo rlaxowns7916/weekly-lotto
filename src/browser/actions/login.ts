@@ -51,13 +51,13 @@ export async function login(page: Page): Promise<void> {
       // 로그인 결과 대기: 로그아웃 버튼(성공) 또는 에러 메시지(실패)
       const result = await Promise.race([
         page.getByRole('button', { name: '로그아웃' })
-          .waitFor({ state: 'visible', timeout: 20000 })
+          .waitFor({ state: 'visible', timeout: 30000 })
           .then(() => 'success' as const),
         page.locator('text=아이디 또는 비밀번호를 확인해주세요')
-          .waitFor({ state: 'visible', timeout: 20000 })
+          .waitFor({ state: 'visible', timeout: 30000 })
           .then(() => 'wrong_credentials' as const),
         page.locator('text=비밀번호를 입력하세요')
-          .waitFor({ state: 'visible', timeout: 20000 })
+          .waitFor({ state: 'visible', timeout: 30000 })
           .then(() => 'wrong_credentials' as const),
       ]).catch(() => 'timeout' as const);
 
