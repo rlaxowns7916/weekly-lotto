@@ -54,6 +54,10 @@ jobs:
         run: |
           echo "=== .env file content (masked) ==="
           sed 's/=.*/=***/' .env
+          echo "=== Password length check (dotenv) ==="
+          node -e "require('dotenv').config(); console.log('Password length:', process.env.LOTTO_PASSWORD?.length); console.log('First char:', process.env.LOTTO_PASSWORD?.[0]); console.log('Last char:', process.env.LOTTO_PASSWORD?.slice(-1))"
+          echo "=== Password length check (--env-file) ==="
+          node --env-file=.env -e "console.log('Password length:', process.env.LOTTO_PASSWORD?.length); console.log('First char:', process.env.LOTTO_PASSWORD?.[0]); console.log('Last char:', process.env.LOTTO_PASSWORD?.slice(-1))"
 
       - name: 당첨 확인 실행
         run: npm run check-result
