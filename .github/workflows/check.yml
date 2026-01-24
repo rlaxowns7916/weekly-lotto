@@ -31,14 +31,14 @@ jobs:
       - name: Create .env file
         run: |
           {
-            echo "LOTTO_USERNAME=$LOTTO_USERNAME"
-            echo "LOTTO_PASSWORD=$LOTTO_PASSWORD"
-            echo "LOTTO_EMAIL_SMTP_HOST=$LOTTO_EMAIL_SMTP_HOST"
-            echo "LOTTO_EMAIL_SMTP_PORT=$LOTTO_EMAIL_SMTP_PORT"
-            echo "LOTTO_EMAIL_USERNAME=$LOTTO_EMAIL_USERNAME"
-            echo "LOTTO_EMAIL_PASSWORD=$LOTTO_EMAIL_PASSWORD"
-            echo "LOTTO_EMAIL_FROM=$LOTTO_EMAIL_FROM"
-            echo "LOTTO_EMAIL_TO=$LOTTO_EMAIL_TO"
+            printf 'LOTTO_USERNAME=%s\n' "$LOTTO_USERNAME"
+            printf 'LOTTO_PASSWORD=%s\n' "$LOTTO_PASSWORD"
+            printf 'LOTTO_EMAIL_SMTP_HOST=%s\n' "$LOTTO_EMAIL_SMTP_HOST"
+            printf 'LOTTO_EMAIL_SMTP_PORT=%s\n' "$LOTTO_EMAIL_SMTP_PORT"
+            printf 'LOTTO_EMAIL_USERNAME=%s\n' "$LOTTO_EMAIL_USERNAME"
+            printf 'LOTTO_EMAIL_PASSWORD=%s\n' "$LOTTO_EMAIL_PASSWORD"
+            printf 'LOTTO_EMAIL_FROM=%s\n' "$LOTTO_EMAIL_FROM"
+            printf 'LOTTO_EMAIL_TO=%s\n' "$LOTTO_EMAIL_TO"
           } > .env
         env:
           LOTTO_USERNAME: ${{ secrets.LOTTO_USERNAME }}
