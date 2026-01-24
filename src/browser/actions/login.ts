@@ -68,6 +68,7 @@ export async function login(page: Page): Promise<void> {
       maxRetries: 3,
       baseDelayMs: 2000,
       maxDelayMs: 10000,
+      shouldRetry: () => true, // 모든 에러에 대해 재시도
     }
   ).catch(async (error) => {
     await saveErrorScreenshot(page, 'login-error');
