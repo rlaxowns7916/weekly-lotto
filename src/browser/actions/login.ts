@@ -22,7 +22,7 @@ export async function login(page: Page): Promise<void> {
   await withRetry(
     async () => {
       // 메인 페이지로 이동
-      await page.goto(loginSelectors.url, { timeout: 30000 });
+      await page.goto(loginSelectors.url, { timeout: 60000 });
       await page.waitForLoadState('networkidle');
 
       // 로그인 버튼 클릭
@@ -51,13 +51,13 @@ export async function login(page: Page): Promise<void> {
       // 로그인 결과 대기: 로그아웃 버튼(성공) 또는 에러 메시지(실패)
       const result = await Promise.race([
         page.getByRole('button', { name: '로그아웃' })
-          .waitFor({ state: 'visible', timeout: 30000 })
+          .waitFor({ state: 'visible', timeout: 60000 })
           .then(() => 'success' as const),
         page.locator('text=아이디 또는 비밀번호를 확인해주세요')
-          .waitFor({ state: 'visible', timeout: 30000 })
+          .waitFor({ state: 'visible', timeout: 60000 })
           .then(() => 'wrong_credentials' as const),
         page.locator('text=비밀번호를 입력하세요')
-          .waitFor({ state: 'visible', timeout: 30000 })
+          .waitFor({ state: 'visible', timeout: 60000 })
           .then(() => 'wrong_credentials' as const),
       ]).catch(() => 'timeout' as const);
 
