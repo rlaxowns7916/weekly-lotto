@@ -50,20 +50,5 @@ jobs:
           LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
 
-      - name: Debug .env file
-        run: |
-          echo "=== .env file content (masked) ==="
-          sed 's/=.*/=***/' .env
-          echo "=== Password check (--env-file) ==="
-          node --env-file=.env -e "const p = process.env.LOTTO_PASSWORD; console.log('Length:', p?.length); console.log('First char:', p?.[0]); console.log('Last char:', p?.slice(-1))"
-
       - name: 당첨 확인 실행
         run: npm run check-result
-
-      - name: Upload screenshots on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: error-screenshots
-          path: screenshots/
-          retention-days: 7
