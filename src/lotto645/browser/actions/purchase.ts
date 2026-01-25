@@ -32,6 +32,9 @@ export async function purchaseLotto(
         await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
         console.log(`페이지 로드 완료 - URL: ${page.url()}`);
 
+        // 알림 팝업이 있으면 닫기 (예: 판매시간 안내 등)
+        await dismissAlertPopup(page);
+
         // 2. 자동번호발급 링크 클릭
         const autoNumberLink = page.getByRole(purchaseSelectors.autoNumberLink.role, {
           name: purchaseSelectors.autoNumberLink.name,
@@ -172,6 +175,33 @@ async function parsePurchasedTickets(page: Page): Promise<PurchasedTicket[]> {
   }
 
   return tickets;
+}
+
+/**
+ * 알림 팝업 닫기 (#popupLayerAlert)
+ * 판매시간 안내 등 다양한 알림이 표시될 수 있음
+ */
+async function dismissAlertPopup(page: Page): Promise<void> {
+  try {
+    const popup = page.locator('#popupLayerAlert');
+    const isVisible = await popup.isVisible().catch(() => false);
+
+    if (isVisible) {
+      // 팝업 메시지 로깅
+      const message = await popup.locator('.layer-message').textContent().catch(() => '');
+      console.log(`알림 팝업 발견: ${message?.trim() || '(메시지 없음)'}`);
+
+      // 확인 버튼 클릭하여 닫기
+      const confirmBtn = popup.locator('input.confirm, button.confirm');
+      await confirmBtn.click({ timeout: 5000 });
+      console.log('알림 팝업 닫음');
+
+      // 팝업이 닫힐 때까지 대기
+      await popup.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    }
+  } catch (error) {
+    console.log('알림 팝업 처리 중 오류 (무시):', error);
+  }
 }
 
 /**
