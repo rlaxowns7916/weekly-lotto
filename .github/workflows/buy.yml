@@ -53,3 +53,12 @@ jobs:
 
       - name: 로또 구매 실행
         run: npm run buy
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-screenshots
+          path: screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
