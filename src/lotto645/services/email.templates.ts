@@ -6,6 +6,8 @@
 
 import type { PurchasedTicket } from '../domain/ticket.js';
 import { getModeLabel } from '../domain/ticket.js';
+import { formatDateKorean } from '../../shared/utils/date.js';
+import { escapeHtml } from '../../shared/utils/html.js';
 
 /**
  * 번호에 따른 배경색 반환
@@ -30,25 +32,8 @@ function renderNumbers(numbers: number[]): string {
     .join('');
 }
 
-/**
- * 날짜 포맷 (ISO -> 한국어)
- */
-function formatDate(isoDate: string | undefined): string {
-  if (!isoDate) return '-';
-  try {
-    const date = new Date(isoDate);
-    return date.toLocaleString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      weekday: 'short',
-    });
-  } catch {
-    return isoDate;
-  }
-}
+// formatDateKorean을 내부 alias로 사용 (기존 코드 호환성)
+const formatDate = formatDateKorean;
 
 /**
  * 구매 성공 이메일 템플릿
@@ -223,18 +208,6 @@ weekly-lotto 자동화 시스템
 `;
 
   return { subject, html, text };
-}
-
-/**
- * HTML 이스케이프
- */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
 
 /**

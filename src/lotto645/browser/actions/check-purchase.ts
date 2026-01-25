@@ -12,6 +12,10 @@ import type { PurchasedTicket } from '../../domain/ticket.js';
 import { parseSaleDate, isWithinMinutes } from '../../domain/ticket.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
 import { withRetry } from '../../../shared/utils/retry.js';
+import {
+  navigateToPurchaseHistory as navigateToHistory,
+  LOTTERY_PRODUCTS,
+} from '../../../shared/browser/actions/purchase-history.js';
 
 /**
  * 티켓 모달에서 파싱한 상세 정보
@@ -21,62 +25,14 @@ interface TicketDetails extends PurchasedTicket {
   barcode?: string;
 }
 
+/** 로또6/45 상품 정보 */
+const PRODUCT = LOTTERY_PRODUCTS.LO40;
+
 /**
- * 구매 내역 페이지로 이동
+ * 구매 내역 페이지로 이동 (로또6/45)
  */
 async function navigateToPurchaseHistory(page: Page): Promise<void> {
-  await withRetry(
-    async () => {
-      // 구매내역 페이지로 직접 이동
-      await page.goto('https://www.dhlottery.co.kr/mypage/mylotteryledger', { timeout: 60000 });
-      await page.waitForLoadState('networkidle');
-
-      // 페이지 최상단으로 스크롤 (상세 검색 버튼이 보이도록)
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(500); // 렌더링 안정화
-
-      // 상세 검색 펼치기 (최근 1주일 버튼이 상세 검색 영역 안에 있음)
-      const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
-      if (await detailBtn.isVisible().catch(() => false)) {
-        await detailBtn.scrollIntoViewIfNeeded();
-        await detailBtn.click({ force: true });
-        await page.waitForTimeout(300); // 영역 펼쳐지는 애니메이션 대기
-      }
-
-      // 최근 1주일 버튼 클릭
-      const weekBtn = page.getByRole('button', { name: '최근 1주일' });
-      await weekBtn.waitFor({ state: 'visible', timeout: 10000 });
-      await weekBtn.scrollIntoViewIfNeeded();
-      await weekBtn.click({ force: true });
-
-      // 복권 선택 드롭다운이 활성화될 때까지 대기 후 로또6/45 선택
-      const selectBox = page.locator('#ltGdsSelect');
-      await selectBox.waitFor({ state: 'attached', timeout: 10000 });
-      await selectBox.selectOption('LO40');
-
-      // 검색 버튼 클릭 + API 응답 대기
-      const searchBtn = page.getByRole('button', { name: '검색', exact: true });
-      await searchBtn.waitFor({ state: 'visible', timeout: 10000 });
-
-      await Promise.all([
-        page.waitForResponse(
-          (resp) => resp.url().includes('selectMyLotteryledger.do') && resp.status() === 200,
-          { timeout: 30000 }
-        ),
-        searchBtn.click(),
-      ]);
-
-      console.log('구매 내역 페이지 이동 완료');
-    },
-    {
-      maxRetries: 3,
-      baseDelayMs: 2000,
-      maxDelayMs: 10000,
-    }
-  ).catch(async (error) => {
-    await saveErrorScreenshot(page, 'purchase-history-nav-error');
-    throw error;
-  });
+  await navigateToHistory(page, PRODUCT.code, 'lotto645-history');
 }
 
 /**
@@ -89,13 +45,28 @@ async function parseTicketModal(modal: Locator): Promise<TicketDetails | null> {
   try {
     const modalText = await modal.textContent();
 
+    // 디버그: 모달 텍스트 출력
+    if (!modalText || modalText.trim().length < 10) {
+      console.warn('모달 텍스트가 비어있거나 너무 짧음:', modalText?.slice(0, 100));
+    }
+
     // 회차 추출 (예: "1208회")
     const roundMatch = modalText?.match(/(\d+)\s*회/);
     const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
 
+    // 회차 파싱 실패 시 디버그 로그
+    if (round === 0) {
+      console.warn('회차 파싱 실패. 모달 텍스트 샘플:', modalText?.slice(0, 200));
+    }
+
     // 발행일 추출 (예: "발행일 2026/01/24 (토) 18:20:39")
     const saleDateMatch = modalText?.match(/발행일\s*([\d/]+\s*\([^)]+\)\s*[\d:]+)/);
     const saleDate = saleDateMatch ? parseSaleDate(saleDateMatch[1]) : undefined;
+
+    // 발행일 파싱 실패 시 디버그 로그
+    if (!saleDate) {
+      console.warn('발행일 파싱 실패. 발행일 매치:', saleDateMatch?.[1]);
+    }
 
     // 추첨일 추출 (예: "추첨일 2026/01/24")
     const drawDateMatch = modalText?.match(/추첨일\s*([\d/]+)/);
@@ -162,8 +133,11 @@ async function getTicketDetails(page: Page, barcodeElement: Locator): Promise<Ti
       const modal = page.locator('#Lotto645TicketP');
       await modal.waitFor({ state: 'visible', timeout: 15000 });
 
-      // 모달 내부 티켓 번호가 로드될 때까지 대기
-      await modal.locator('.ticket-num-box').first().waitFor({ state: 'attached', timeout: 10000 });
+      // 실제 데이터 로딩 대기: 회차 정보 + 번호 6개
+      await Promise.all([
+        modal.locator('text=/\\d+회/').first().waitFor({ state: 'visible', timeout: 10000 }),
+        modal.locator('.ticket-num-in').nth(5).waitFor({ state: 'visible', timeout: 10000 }),
+      ]);
 
       // 티켓 정보 파싱
       const ticket = await parseTicketModal(modal);
@@ -178,9 +152,9 @@ async function getTicketDetails(page: Page, barcodeElement: Locator): Promise<Ti
       return ticket;
     },
     {
-      maxRetries: 2,
-      baseDelayMs: 1000,
-      maxDelayMs: 5000,
+      maxRetries: 3,
+      baseDelayMs: 500,
+      maxDelayMs: 3000,
     }
   ).catch((error) => {
     console.error('티켓 상세 조회 오류:', error);
