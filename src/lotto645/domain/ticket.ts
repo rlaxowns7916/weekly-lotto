@@ -55,59 +55,15 @@ export function isWithinMinutes(saleDate: string, minutes: number): boolean {
 
 /**
  * 발행일 문자열 파싱 (예: "2026/01/24 (토) 18:20:39")
+ *
+ * 동행복권 사이트의 시간은 KST(UTC+9)이므로 타임존 정보 포함
  */
 export function parseSaleDate(saleDateStr: string): string | null {
-  // "2026/01/24 (토) 18:20:39" -> "2026-01-24T18:20:39"
+  // "2026/01/24 (토) 18:20:39" -> "2026-01-24T18:20:39+09:00"
   const match = saleDateStr.match(/(\d{4})\/(\d{2})\/(\d{2}).*?(\d{2}):(\d{2}):(\d{2})/);
   if (!match) return null;
 
   const [, year, month, day, hour, min, sec] = match;
-  return `${year}-${month}-${day}T${hour}:${min}:${sec}`;
+  return `${year}-${month}-${day}T${hour}:${min}:${sec}+09:00`;
 }
 
-/**
- * 구매 요청 티켓 (번호 없이 모드만 지정)
- */
-export interface TicketRequest {
-  /** 선택한 번호 (없으면 자동) */
-  numbers?: number[];
-  /** 구매 모드 */
-  mode: Lotto645Mode;
-}
-
-/**
- * 자동 구매 요청 티켓 생성
- */
-export function createAutoTicketRequest(): TicketRequest {
-  return {
-    numbers: [],
-    mode: 'auto',
-  };
-}
-
-/**
- * 여러 개의 자동 구매 요청 티켓 생성
- */
-export function createAutoTicketRequests(count: number): TicketRequest[] {
-  return Array.from({ length: count }, () => createAutoTicketRequest());
-}
-
-/**
- * 티켓 번호 유효성 검증
- * - 번호는 1~45 범위
- * - 6개 번호
- * - 중복 없음
- */
-export function validateTicketNumbers(numbers: number[]): boolean {
-  if (numbers.length !== 6) return false;
-  if (numbers.some((n) => n < 1 || n > 45)) return false;
-  if (new Set(numbers).size !== 6) return false;
-  return true;
-}
-
-/**
- * 번호 배열 정렬
- */
-export function sortNumbers(numbers: number[]): number[] {
-  return [...numbers].sort((a, b) => a - b);
-}
