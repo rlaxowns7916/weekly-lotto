@@ -51,8 +51,10 @@ jobs:
           LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
 
-      - name: 로또 구매 실행
-        run: npm run buy
+      - name: 로또 구매 실행 (Xvfb headed 모드)
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run buy
+        env:
+          HEADED: 'true'
 
       - name: Upload screenshots on failure
         if: failure()
