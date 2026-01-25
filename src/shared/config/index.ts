@@ -28,9 +28,9 @@ const configSchema = z.object({
   /** 이메일 설정 (선택) */
   email: emailConfigSchema,
   /** 브라우저 표시 여부 (headed 모드) */
-  headed: z.coerce.boolean().default(false),
+  headed: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
   /** CI 환경 여부 */
-  ci: z.coerce.boolean().default(false),
+  ci: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
 });
 
 /**
