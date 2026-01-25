@@ -35,14 +35,21 @@ export async function createBrowserSession(
 ): Promise<BrowserSession> {
   const config = getConfig();
 
+  const isHeadless = !options.headed && !config.headed;
+
   const browser = await chromium.launch({
-    headless: !options.headed && !config.headed,
+    headless: isHeadless,
     slowMo: options.slowMo,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+      // Headless 감지 우회
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-site-isolation-trials',
+      // User-Agent에서 HeadlessChrome 제거
+      ...(isHeadless ? ['--headless=new'] : []),
     ],
   });
 
@@ -55,6 +62,10 @@ export async function createBrowserSession(
     bypassCSP: true,
     extraHTTPHeaders: {
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+      // HeadlessChrome 노출 방지
+      'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
     },
   });
 
