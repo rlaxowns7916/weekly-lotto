@@ -38,17 +38,45 @@ export async function createBrowserSession(
   const browser = await chromium.launch({
     headless: !options.headed && !config.headed,
     slowMo: options.slowMo,
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--disable-gpu',
+    ],
   });
 
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 },
+    viewport: { width: 1920, height: 1080 },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
-    // 데스크톱 Chrome User-Agent (headless shell 봇 감지 우회)
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    // Headless 탐지 우회 설정
+    bypassCSP: true,
+    extraHTTPHeaders: {
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    },
   });
 
   const page = await context.newPage();
+
+  // navigator.webdriver 숨기기 (headless 탐지 우회)
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => undefined,
+    });
+    // plugins 배열 채우기
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [1, 2, 3, 4, 5],
+    });
+    // languages 설정
+    Object.defineProperty(navigator, 'languages', {
+      get: () => ['ko-KR', 'ko', 'en-US', 'en'],
+    });
+  });
 
   return { browser, context, page };
 }
