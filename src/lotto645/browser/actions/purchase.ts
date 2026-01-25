@@ -28,16 +28,40 @@ export async function purchaseLotto(
   return await withRetry(
     async () => {
       try {
-        // 메인 페이지에서 로또6/45 버튼 클릭하여 팝업 열기 (세션 쿠키 공유됨)
-        console.log('로또6/45 버튼 클릭하여 구매 페이지 팝업 열기...');
-        const popupPromise = page.waitForEvent('popup', { timeout: 30000 });
-        await page.getByRole(purchaseSelectors.lottoButton.role, {
-          name: purchaseSelectors.lottoButton.name,
-        }).click();
+        // 현재 페이지 상태 확인
+        console.log(`현재 URL: ${page.url()}`);
+        await saveErrorScreenshot(page, 'before-lotto-button');
 
-        // 팝업 페이지 대기
-        purchasePage = await popupPromise;
-        console.log(`팝업 열림 - URL: ${purchasePage.url()}`);
+        // 로또6/45 버튼 존재 여부 확인
+        const lottoButton = page.getByRole(purchaseSelectors.lottoButton.role, {
+          name: purchaseSelectors.lottoButton.name,
+        });
+
+        const buttonVisible = await lottoButton.isVisible().catch(() => false);
+        console.log(`로또6/45 버튼 visible: ${buttonVisible}`);
+
+        if (buttonVisible) {
+          // 팝업 방식 시도
+          console.log('로또6/45 버튼 클릭하여 구매 페이지 팝업 열기...');
+          const popupPromise = page.waitForEvent('popup', { timeout: 15000 });
+          await lottoButton.click();
+
+          try {
+            purchasePage = await popupPromise;
+            console.log(`팝업 열림 - URL: ${purchasePage.url()}`);
+          } catch {
+            console.log('팝업 열기 실패, 직접 페이지 이동 방식 시도...');
+            purchasePage = null;
+          }
+        }
+
+        // 팝업 실패 또는 버튼 없음 - 직접 페이지 이동
+        if (!purchasePage) {
+          console.log('새 페이지에서 직접 구매 URL로 이동...');
+          purchasePage = await page.context().newPage();
+          await purchasePage.goto(purchaseSelectors.purchaseUrl, { timeout: 60000 });
+        }
+
         await purchasePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
         console.log(`페이지 로드 완료 - URL: ${purchasePage.url()}`);
 
