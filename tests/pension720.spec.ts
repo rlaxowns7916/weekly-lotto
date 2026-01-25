@@ -13,6 +13,12 @@ import { test, expect, Page } from '@playwright/test';
 const MAIN_URL = 'https://www.dhlottery.co.kr/main';
 const LOGIN_URL = 'https://www.dhlottery.co.kr/login';
 const PURCHASE_URL = 'https://el.dhlottery.co.kr/game_mobile/pension720/game.jsp';
+const PURCHASE_HISTORY_URL = 'https://www.dhlottery.co.kr/mypage/mylotteryledger';
+
+// 연금복권720+ 복권 상품 코드
+const PRODUCT_CODE = 'LP72';
+// 티켓 모달 ID
+const MODAL_ID = '#Pt720TicketP';
 
 // 환경 변수에서 자격 증명 가져오기
 const getCredentials = () => ({
@@ -229,5 +235,290 @@ test.describe('연금복권 720+ 구매 플로우 테스트 (로그인 필요)',
 
     // 스크린샷 (확인용)
     await page.screenshot({ path: 'test-results/pension720-dry-run-before-buy.png' });
+  });
+});
+
+test.describe('연금복권 720+ 구매내역 조회 테스트 (로그인 필요)', () => {
+  test.beforeEach(async ({ page }) => {
+    const { username, password } = getCredentials();
+    test.skip(!username || !password, '환경 변수 LOTTO_USERNAME, LOTTO_PASSWORD 필요');
+
+    const loggedIn = await performLogin(page);
+    expect(loggedIn).toBeTruthy();
+  });
+
+  test('구매내역 페이지로 이동할 수 있다', async ({ page }) => {
+    await page.goto(PURCHASE_HISTORY_URL, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+
+    expect(page.url()).toContain('mylotteryledger');
+  });
+
+  test('연금복권720+ 필터를 선택할 수 있다', async ({ page }) => {
+    await page.goto(PURCHASE_HISTORY_URL, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+
+    // 상세 검색 펼치기
+    const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+    await detailBtn.click();
+
+    // 최근 1주일 선택
+    const weekBtn = page.getByRole('button', { name: '최근 1주일' });
+    await weekBtn.click();
+
+    // 복권 선택 드롭다운에서 연금복권720+ 선택
+    const selectBox = page.locator('#ltGdsSelect');
+    await selectBox.waitFor({ state: 'attached', timeout: 10000 });
+    await selectBox.selectOption(PRODUCT_CODE);
+
+    // 선택 확인
+    const selectedValue = await selectBox.inputValue();
+    expect(selectedValue).toBe(PRODUCT_CODE);
+  });
+
+  test('검색 버튼을 클릭하면 결과가 로드된다', async ({ page }) => {
+    await page.goto(PURCHASE_HISTORY_URL, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+
+    // 상세 검색 펼치기
+    const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+    await detailBtn.click();
+
+    // 최근 1주일 선택
+    const weekBtn = page.getByRole('button', { name: '최근 1주일' });
+    await weekBtn.click();
+
+    // 연금복권720+ 선택
+    const selectBox = page.locator('#ltGdsSelect');
+    await selectBox.waitFor({ state: 'attached', timeout: 10000 });
+    await selectBox.selectOption(PRODUCT_CODE);
+
+    // 검색 버튼 클릭
+    const searchBtn = page.getByRole('button', { name: '검색', exact: true });
+    await searchBtn.click();
+
+    // 결과 로딩 대기: 결과 행이 나타나거나 "조회 결과가 없습니다" 메시지
+    const result = await Promise.race([
+      page.locator('li.whl-row').first().waitFor({ state: 'attached', timeout: 30000 })
+        .then(() => 'has_results' as const),
+      page.locator('text=조회 결과가 없습니다').waitFor({ state: 'visible', timeout: 30000 })
+        .then(() => 'no_results' as const),
+    ]).catch(() => 'timeout' as const);
+
+    expect(['has_results', 'no_results']).toContain(result);
+  });
+
+  test('구매 내역이 있으면 바코드가 표시된다', async ({ page }) => {
+    await page.goto(PURCHASE_HISTORY_URL, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+
+    // 상세 검색 펼치기
+    const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+    await detailBtn.click();
+
+    // 최근 1주일 선택
+    const weekBtn = page.getByRole('button', { name: '최근 1주일' });
+    await weekBtn.click();
+
+    // 연금복권720+ 선택
+    const selectBox = page.locator('#ltGdsSelect');
+    await selectBox.waitFor({ state: 'attached', timeout: 10000 });
+    await selectBox.selectOption(PRODUCT_CODE);
+
+    // 검색 버튼 클릭
+    const searchBtn = page.getByRole('button', { name: '검색', exact: true });
+    await searchBtn.click();
+
+    // 결과 로딩 대기
+    const hasResults = await page
+      .locator('li.whl-row')
+      .first()
+      .waitFor({ state: 'attached', timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (hasResults) {
+      const barcodeElement = page.locator('span.whl-txt.barcd').first();
+      await expect(barcodeElement).toBeVisible();
+    } else {
+      test.skip(true, '최근 1주일 내 연금복권720+ 구매 내역 없음');
+    }
+  });
+
+  test('바코드 클릭 시 티켓 상세 모달이 열린다', async ({ page }) => {
+    await page.goto(PURCHASE_HISTORY_URL, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+
+    // 상세 검색 펼치기
+    const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+    await detailBtn.click();
+
+    // 최근 1주일 선택
+    const weekBtn = page.getByRole('button', { name: '최근 1주일' });
+    await weekBtn.click();
+
+    // 연금복권720+ 선택
+    const selectBox = page.locator('#ltGdsSelect');
+    await selectBox.waitFor({ state: 'attached', timeout: 10000 });
+    await selectBox.selectOption(PRODUCT_CODE);
+
+    // 검색 버튼 클릭
+    const searchBtn = page.getByRole('button', { name: '검색', exact: true });
+    await searchBtn.click();
+
+    // 결과 로딩 대기
+    const hasResults = await page
+      .locator('span.whl-txt.barcd')
+      .first()
+      .waitFor({ state: 'visible', timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!hasResults) {
+      test.skip(true, '최근 1주일 내 연금복권720+ 구매 내역 없음');
+      return;
+    }
+
+    // 바코드 클릭
+    const barcodeElement = page.locator('span.whl-txt.barcd').first();
+    await barcodeElement.click();
+
+    // 티켓 상세 모달 확인
+    const modal = page.locator(MODAL_ID);
+    await expect(modal).toBeVisible({ timeout: 15000 });
+
+    // 모달 내부에 티켓 번호가 있는지 확인
+    const ticketLine = modal.locator('.ticket-num-line').first();
+    await expect(ticketLine).toBeAttached({ timeout: 10000 });
+
+    // 모달 닫기
+    const closeBtn = modal.locator('button').first();
+    await closeBtn.click();
+    await expect(modal).toBeHidden({ timeout: 5000 });
+  });
+
+  test('티켓 모달에서 조 번호를 추출할 수 있다', async ({ page }) => {
+    await page.goto(PURCHASE_HISTORY_URL, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+
+    // 상세 검색 펼치기
+    const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+    await detailBtn.click();
+
+    // 최근 1주일 선택
+    const weekBtn = page.getByRole('button', { name: '최근 1주일' });
+    await weekBtn.click();
+
+    // 연금복권720+ 선택
+    const selectBox = page.locator('#ltGdsSelect');
+    await selectBox.waitFor({ state: 'attached', timeout: 10000 });
+    await selectBox.selectOption(PRODUCT_CODE);
+
+    // 검색 버튼 클릭
+    const searchBtn = page.getByRole('button', { name: '검색', exact: true });
+    await searchBtn.click();
+
+    // 결과 로딩 대기
+    const hasResults = await page
+      .locator('span.whl-txt.barcd')
+      .first()
+      .waitFor({ state: 'visible', timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!hasResults) {
+      test.skip(true, '최근 1주일 내 연금복권720+ 구매 내역 없음');
+      return;
+    }
+
+    // 바코드 클릭
+    const barcodeElement = page.locator('span.whl-txt.barcd').first();
+    await barcodeElement.click();
+
+    // 티켓 상세 모달 대기
+    const modal = page.locator(MODAL_ID);
+    await modal.waitFor({ state: 'visible', timeout: 15000 });
+
+    // 조 번호 추출 (.ticket-cate에서)
+    const ticketLine = modal.locator('.ticket-num-line').first();
+    const groupText = await ticketLine.locator('.ticket-cate').first().textContent();
+
+    // 조 번호가 1~5 범위인지 확인
+    const groupMatch = groupText?.match(/([1-5])/);
+    expect(groupMatch).not.toBeNull();
+    const groupNum = parseInt(groupMatch![1], 10);
+    expect(groupNum).toBeGreaterThanOrEqual(1);
+    expect(groupNum).toBeLessThanOrEqual(5);
+
+    // 모달 닫기
+    const closeBtn = modal.locator('button').first();
+    await closeBtn.click();
+  });
+
+  test('티켓 모달에서 6자리 번호를 추출할 수 있다', async ({ page }) => {
+    await page.goto(PURCHASE_HISTORY_URL, { timeout: 60000 });
+    await page.waitForLoadState('networkidle');
+
+    // 상세 검색 펼치기
+    const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+    await detailBtn.click();
+
+    // 최근 1주일 선택
+    const weekBtn = page.getByRole('button', { name: '최근 1주일' });
+    await weekBtn.click();
+
+    // 연금복권720+ 선택
+    const selectBox = page.locator('#ltGdsSelect');
+    await selectBox.waitFor({ state: 'attached', timeout: 10000 });
+    await selectBox.selectOption(PRODUCT_CODE);
+
+    // 검색 버튼 클릭
+    const searchBtn = page.getByRole('button', { name: '검색', exact: true });
+    await searchBtn.click();
+
+    // 결과 로딩 대기
+    const hasResults = await page
+      .locator('span.whl-txt.barcd')
+      .first()
+      .waitFor({ state: 'visible', timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!hasResults) {
+      test.skip(true, '최근 1주일 내 연금복권720+ 구매 내역 없음');
+      return;
+    }
+
+    // 바코드 클릭
+    const barcodeElement = page.locator('span.whl-txt.barcd').first();
+    await barcodeElement.click();
+
+    // 티켓 상세 모달 대기
+    const modal = page.locator(MODAL_ID);
+    await modal.waitFor({ state: 'visible', timeout: 15000 });
+
+    // 6자리 번호 추출 (.ticket-num-in에서)
+    const ticketLine = modal.locator('.ticket-num-line').first();
+    const numberElements = ticketLine.locator('.ticket-num-in');
+    const count = await numberElements.count();
+
+    // 6자리인지 확인
+    expect(count).toBe(6);
+
+    // 각 자리가 0~9 범위인지 확인
+    const digits: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const numText = await numberElements.nth(i).textContent();
+      const digit = parseInt(numText?.trim() || '', 10);
+      expect(digit).toBeGreaterThanOrEqual(0);
+      expect(digit).toBeLessThanOrEqual(9);
+      digits.push(digit);
+    }
+
+    console.log(`추출된 번호: ${digits.join('')}`);
+
+    // 모달 닫기
+    const closeBtn = modal.locator('button').first();
+    await closeBtn.click();
   });
 });
