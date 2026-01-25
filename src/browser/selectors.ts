@@ -26,6 +26,9 @@ export const purchaseSelectors = {
   /** 로또6/45 버튼 (새 팝업 열림) */
   lottoButton: { role: 'button' as const, name: '로또6/' },
 
+  /** 구매 페이지 URL (팝업 대신 직접 이동용) */
+  purchaseUrl: 'https://el.dhlottery.co.kr/game/TotalGame.jsp?LottoId=LO40',
+
   /** 구매 페이지 iframe 이름 */
   iframeName: 'ifrm_tab',
 

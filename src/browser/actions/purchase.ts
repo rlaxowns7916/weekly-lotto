@@ -28,53 +28,27 @@ export async function purchaseLotto(
   return await withRetry(
     async () => {
       try {
-        // 현재 페이지 URL 확인 (디버깅용)
-        const currentUrl = page.url();
-        console.log(`현재 페이지: ${currentUrl}`);
+        // 같은 컨텍스트에서 새 페이지 생성 (쿠키/세션 공유)
+        // headless 환경에서 팝업이 안정적으로 동작하지 않아 직접 페이지 생성 방식 사용
+        const context = page.context();
+        purchasePage = await context.newPage();
 
-        // 로또6/45 버튼 찾기
-        const lottoButton = page.getByRole(purchaseSelectors.lottoButton.role, {
-          name: purchaseSelectors.lottoButton.name,
+        // 구매 페이지로 직접 이동
+        console.log(`구매 페이지로 이동: ${purchaseSelectors.purchaseUrl}`);
+        await purchasePage.goto(purchaseSelectors.purchaseUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000,
         });
+        console.log(`페이지 로드 완료 - URL: ${purchasePage.url()}`);
 
-        // 버튼이 보일 때까지 대기 (최대 60초)
-        console.log('로또6/45 버튼 찾는 중...');
-        try {
-          await lottoButton.waitFor({ state: 'visible', timeout: 60000 });
-          console.log('로또6/45 버튼 발견');
-        } catch {
-          // 버튼을 찾지 못한 경우 디버깅 정보 출력
-          console.error('로또6/45 버튼을 찾을 수 없습니다!');
-          console.error(`현재 URL: ${page.url()}`);
+        // iframe이 존재하는지 먼저 확인
+        const iframeLocator = purchasePage.locator(`iframe[name="${purchaseSelectors.iframeName}"]`);
+        console.log('iframe 대기 중...');
+        await iframeLocator.waitFor({ state: 'attached', timeout: 60000 });
+        console.log('iframe 발견');
 
-          // 페이지의 모든 버튼 이름 출력
-          const allButtons = await page.getByRole('button').all();
-          console.error(`페이지 내 버튼 개수: ${allButtons.length}`);
-          for (let i = 0; i < Math.min(allButtons.length, 10); i++) {
-            const name = await allButtons[i].getAttribute('aria-label')
-              || await allButtons[i].textContent()
-              || '(이름 없음)';
-            console.error(`  버튼 ${i + 1}: ${name.trim().substring(0, 50)}`);
-          }
-
-          throw new Error('로또6/45 버튼을 찾을 수 없습니다');
-        }
-
-        // 팝업 이벤트 리스닝 시작 (타임아웃 60초)
-        const popupPromise = page.waitForEvent('popup', { timeout: 60000 });
-
-        // 로또6/45 버튼 클릭
-        console.log('로또6/45 버튼 클릭...');
-        await lottoButton.click();
-
-        // 새 팝업 페이지 대기
-        console.log('팝업 대기 중...');
-        purchasePage = await popupPromise;
-        console.log('팝업 열림');
-        await purchasePage.waitForLoadState('networkidle', { timeout: 60000 });
-
-        // iframe 가져오기
-        const iframe = purchasePage.locator(`iframe[name="${purchaseSelectors.iframeName}"]`).contentFrame();
+        // iframe 내용이 로드될 때까지 대기
+        const iframe = iframeLocator.contentFrame();
 
         // 자동번호발급 링크가 보일 때까지 대기
         const autoNumberLink = iframe.getByRole(purchaseSelectors.autoNumberLink.role, {
