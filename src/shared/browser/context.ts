@@ -71,10 +71,15 @@ export async function createBrowserSession(
 
   const page = await context.newPage();
 
-  // navigator.webdriver 숨기기 (headless 탐지 우회)
+  // navigator 속성 우회 (headless/봇 탐지 우회)
   await page.addInitScript(() => {
+    // webdriver 숨기기
     Object.defineProperty(navigator, 'webdriver', {
       get: () => undefined,
+    });
+    // platform을 Windows로 위장 (Linux 감지 우회)
+    Object.defineProperty(navigator, 'platform', {
+      get: () => 'Win32',
     });
     // plugins 배열 채우기
     Object.defineProperty(navigator, 'plugins', {
