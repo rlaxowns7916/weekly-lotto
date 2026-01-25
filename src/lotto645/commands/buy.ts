@@ -9,7 +9,7 @@
 
 import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
 import { login } from '../../shared/browser/actions/login.js';
-import { buyLottoViaApi } from '../api/purchase-api.js';
+import { purchaseLotto } from '../browser/actions/purchase.js';
 import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
 import {
   purchaseSuccessTemplate,
@@ -36,19 +36,14 @@ async function main(): Promise<void> {
     console.log('1. 로그인 중...');
     await login(session.page);
 
-    // 2. 로또 구매 (API 직접 호출)
-    if (dryRun) {
-      console.log('\n2. DRY RUN 모드: API 호출 테스트...');
-      // DRY RUN에서는 회차 정보만 조회
-      const { getCurrentRound } = await import('../api/purchase-api.js');
-      const round = await getCurrentRound(session.context);
-      console.log(`   현재 회차: ${round}회`);
-      console.log('\n✅ DRY RUN 완료!');
-      console.log('   API 연결 정상, 실제 구매는 진행되지 않음');
-    } else {
-      console.log('\n2. 로또 구매 (API 직접 호출)...');
-      const tickets = await buyLottoViaApi(session.context, 1);
+    // 2. 로또 구매 (ol.dhlottery.co.kr 직접 접근)
+    console.log('\n2. 로또 구매 페이지로 이동...');
+    const tickets = await purchaseLotto(session.page, dryRun);
 
+    if (dryRun) {
+      console.log('\n✅ DRY RUN 완료!');
+      console.log('   구매 페이지 접근 정상, 실제 구매는 진행되지 않음');
+    } else {
       console.log('\n✅ 구매 완료!');
 
       if (tickets.length > 0) {
@@ -56,7 +51,9 @@ async function main(): Promise<void> {
         console.log('\n📋 구매한 번호:');
         console.log(`   회차: ${ticket.round}회`);
         console.log(`   슬롯: ${ticket.slot} (${ticket.mode === 'auto' ? '자동' : '수동'})`);
-        console.log(`   번호: ${ticket.numbers.join(', ')}`);
+        if (ticket.numbers.length > 0) {
+          console.log(`   번호: ${ticket.numbers.join(', ')}`);
+        }
 
         // 이메일 알림 전송
         if (hasEmailConfig()) {
@@ -71,7 +68,6 @@ async function main(): Promise<void> {
         }
       }
     }
-
   } catch (error) {
     console.error('\n❌ 실패:', error);
 

@@ -7,21 +7,17 @@
 
 /**
  * 구매 관련 셀렉터
+ *
+ * ol.dhlottery.co.kr 직접 접근 방식 (iframe 없음)
  */
 export const purchaseSelectors = {
-  /** 로또6/45 버튼 (새 팝업 열림) */
-  lottoButton: { role: 'button' as const, name: '로또6/' },
-
-  /** 구매 페이지 URL (팝업 대신 직접 이동용) */
-  purchaseUrl: 'https://el.dhlottery.co.kr/game/TotalGame.jsp?LottoId=LO40',
-
-  /** 구매 페이지 iframe 이름 */
-  iframeName: 'ifrm_tab',
+  /** 구매 페이지 URL (ol 서브도메인 직접 접근) */
+  purchaseUrl: 'https://ol.dhlottery.co.kr/olotto/game/game645.do',
 
   /** 자동번호발급 링크 */
   autoNumberLink: {
     role: 'link' as const,
-    name: '자동번호발급 구매 수량 전체를 자동번호로 발급 받을 수 있습니다',
+    name: /자동번호발급/,
   },
 
   /** 확인 버튼 (슬롯 추가 후) */
