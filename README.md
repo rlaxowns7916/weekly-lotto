@@ -33,3 +33,33 @@ Repository Settings → Secrets and variables → Actions에서 설정:
 - `LOTTO_EMAIL_PASSWORD`: SMTP 인증 비밀번호
 - `LOTTO_EMAIL_FROM`: 발신자 이메일
 - `LOTTO_EMAIL_TO`: 수신자 이메일
+
+## 테스트
+
+Playwright E2E 테스트로 주요 기능을 검증합니다.
+
+```bash
+# 테스트 목록 확인
+npx playwright test --list
+
+# 전체 테스트 실행
+HEADED=true npx playwright test
+
+# 특정 테스트 파일 실행
+npx playwright test tests/lotto645.spec.ts
+```
+
+### 테스트 구성
+
+| 파일 | 설명 | 테스트 수 |
+|------|------|----------|
+| `lotto645.spec.ts` | 로또 6/45 당첨번호 조회, 구매, 구매내역 | 20 |
+| `pension720.spec.ts` | 연금복권 720+ 당첨번호 조회, 구매, 구매내역 | 18 |
+| `login.spec.ts` | 로그인 기능 | 4 |
+
+## CI/CD
+
+PR 및 main 브랜치 푸시 시 자동으로 CI가 실행됩니다.
+
+- **Lint & Type Check**: ESLint + TypeScript 타입 검사
+- **E2E Tests**: Playwright 전체 테스트 실행
