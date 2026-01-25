@@ -52,9 +52,9 @@ async function executePurchase(page: Page): Promise<void> {
   console.log('확인 버튼 클릭...');
   await confirmBtn.click();
 
-  // A슬롯에 번호가 추가될 때까지 대기 (구매하기 버튼 활성화 조건)
-  await page.locator('.slot_num .num').first().waitFor({ state: 'visible', timeout: 10000 });
-  console.log('A슬롯 번호 추가됨');
+  // 확인 버튼이 사라질 때까지 대기 (번호가 슬롯에 추가되면 버튼 사라짐)
+  await confirmBtn.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+  console.log('번호 선택 완료');
 
   // 4. 구매하기 버튼 클릭 → 구매 확인 팝업 표시
   const buyBtn = page.getByRole(purchaseSelectors.buyButton.role, {
@@ -213,7 +213,7 @@ export async function purchaseLotto(
 /**
  * DRY RUN 모드 실행
  *
- * 구매 버튼 클릭 전까지만 진행하고 멈춤
+ * 구매하기 버튼 클릭 → 확인 팝업에서 취소 클릭 (실제 구매 안함)
  */
 async function executeDryRun(page: Page): Promise<PurchasedTicket[]> {
   return await withRetry(
@@ -244,9 +244,36 @@ async function executeDryRun(page: Page): Promise<PurchasedTicket[]> {
         console.log('확인 버튼 클릭...');
         await confirmBtn.click();
 
-        console.log('🔸 DRY RUN 모드: 구매 버튼 클릭 전 멈춤');
-        console.log('🔸 실제 구매를 원하면 dryRun: false로 실행하세요');
-        await saveErrorScreenshot(page, 'dry-run-before-buy');
+        // 확인 버튼이 사라질 때까지 대기
+        await confirmBtn.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+        console.log('번호 선택 완료');
+
+        // 4. 구매하기 버튼 클릭
+        const buyBtn = page.getByRole(purchaseSelectors.buyButton.role, {
+          name: purchaseSelectors.buyButton.name,
+        });
+        await buyBtn.waitFor({ state: 'visible', timeout: 30000 });
+        console.log('구매하기 버튼 클릭...');
+        await buyBtn.click();
+
+        // 5. 구매 확인 팝업 대기
+        const confirmPopup = page.locator(purchaseSelectors.confirmPopup);
+        await confirmPopup.waitFor({ state: 'visible', timeout: 30000 });
+        console.log('구매 확인 팝업 표시됨');
+
+        await saveErrorScreenshot(page, 'dry-run-before-cancel');
+
+        // 6. 취소 버튼 클릭 (DRY RUN - 실제 구매 안함)
+        const cancelBtn = confirmPopup.getByRole('button', { name: '취소' });
+        await cancelBtn.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('🔸 DRY RUN: 취소 버튼 클릭...');
+        await cancelBtn.click();
+
+        // 팝업이 닫힐 때까지 대기
+        await confirmPopup.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+
+        console.log('🔸 DRY RUN 완료: 구매 확인 팝업까지 정상 동작');
+        console.log('🔸 실제 구매를 원하면 DRY_RUN=false로 실행하세요');
         return [];
       } catch (error) {
         await saveErrorScreenshot(page, 'dry-run-error');
