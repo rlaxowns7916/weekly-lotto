@@ -1,4 +1,4 @@
-name: 당첨 확인
+name: 로또645 당첨 확인
 
 on:
   schedule:
@@ -50,8 +50,8 @@ jobs:
           LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
 
-      - name: 당첨 확인 실행
-        run: npm run check-result
+      - name: 로또645 당첨 확인 실행
+        run: npm run lotto:check-result
 
       - name: Upload screenshots on failure
         if: failure()

@@ -1,15 +1,15 @@
-name: 로또 구매
+name: 연금복권720 당첨 확인
 
 on:
   schedule:
-    # 월~금 매일 00:00 UTC (09:00 KST)
-    - cron: '0 0 * * 1-5'
+    # 매주 목요일 12:00 UTC (21:00 KST) - 추첨 후
+    - cron: '0 12 * * 4'
 
   # 수동 실행 가능
   workflow_dispatch:
 
 jobs:
-  buy:
+  check:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,7 +39,6 @@ jobs:
             printf 'LOTTO_EMAIL_PASSWORD="%s"\n' "$LOTTO_EMAIL_PASSWORD"
             printf 'LOTTO_EMAIL_FROM="%s"\n' "$LOTTO_EMAIL_FROM"
             printf 'LOTTO_EMAIL_TO="%s"\n' "$LOTTO_EMAIL_TO"
-            printf 'DRY_RUN=false\n'
           } > .env
         env:
           LOTTO_USERNAME: ${{ secrets.LOTTO_USERNAME }}
@@ -51,10 +50,8 @@ jobs:
           LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
 
-      - name: 로또 구매 실행 (Xvfb headed 모드)
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run buy
-        env:
-          HEADED: 'true'
+      - name: 연금복권720 당첨 확인 실행
+        run: npm run pension:check-result
 
       - name: Upload screenshots on failure
         if: failure()
@@ -62,5 +59,4 @@ jobs:
         with:
           name: error-screenshots
           path: screenshots/
-          retention-days: 7
-          if-no-files-found: ignore
+          retention-days: 1
