@@ -32,16 +32,40 @@ export async function purchaseLotto(
         console.log(`현재 URL: ${page.url()}`);
         await saveErrorScreenshot(page, 'before-lotto-button');
 
-        // 로또6/45 버튼 존재 여부 확인
+        // 방법 1: 로또6/45 버튼 클릭 시도
         const lottoButton = page.getByRole(purchaseSelectors.lottoButton.role, {
           name: purchaseSelectors.lottoButton.name,
         });
 
-        const buttonVisible = await lottoButton.isVisible().catch(() => false);
+        let buttonVisible = await lottoButton.isVisible().catch(() => false);
         console.log(`로또6/45 버튼 visible: ${buttonVisible}`);
 
-        if (buttonVisible) {
-          // 팝업 방식 시도
+        // 방법 2: 버튼이 없으면 Lotto6/45 로고/링크 클릭 시도
+        if (!buttonVisible) {
+          console.log('로또6/45 버튼 없음, Lotto 로고/링크 찾기...');
+          const lottoLink = page.locator('a:has-text("Lotto"), a:has-text("로또"), img[alt*="로또"], img[alt*="Lotto"]').first();
+          const linkVisible = await lottoLink.isVisible().catch(() => false);
+
+          if (linkVisible) {
+            console.log('Lotto 링크 발견, 클릭...');
+            const popupPromise = page.waitForEvent('popup', { timeout: 15000 });
+            await lottoLink.click();
+
+            try {
+              purchasePage = await popupPromise;
+              console.log(`팝업 열림 - URL: ${purchasePage.url()}`);
+            } catch {
+              console.log('팝업 안 열림, 현재 페이지 확인...');
+              // 팝업 대신 현재 페이지가 이동했을 수 있음
+              if (!page.url().includes('main')) {
+                console.log(`페이지 이동됨 - URL: ${page.url()}`);
+              }
+            }
+          }
+        }
+
+        // 방법 3: 버튼 클릭으로 팝업 열기
+        if (!purchasePage && buttonVisible) {
           console.log('로또6/45 버튼 클릭하여 구매 페이지 팝업 열기...');
           const popupPromise = page.waitForEvent('popup', { timeout: 15000 });
           await lottoButton.click();
@@ -50,16 +74,16 @@ export async function purchaseLotto(
             purchasePage = await popupPromise;
             console.log(`팝업 열림 - URL: ${purchasePage.url()}`);
           } catch {
-            console.log('팝업 열기 실패, 직접 페이지 이동 방식 시도...');
+            console.log('팝업 열기 실패...');
             purchasePage = null;
           }
         }
 
-        // 팝업 실패 또는 버튼 없음 - 직접 페이지 이동
+        // 방법 4: 모든 방법 실패 - 같은 페이지에서 직접 구매 URL로 이동 (세션 유지)
         if (!purchasePage) {
-          console.log('새 페이지에서 직접 구매 URL로 이동...');
-          purchasePage = await page.context().newPage();
-          await purchasePage.goto(purchaseSelectors.purchaseUrl, { timeout: 60000 });
+          console.log('같은 페이지에서 구매 URL로 직접 이동...');
+          await page.goto(purchaseSelectors.purchaseUrl, { timeout: 60000 });
+          purchasePage = page;
         }
 
         await purchasePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
@@ -106,8 +130,10 @@ export async function purchaseLotto(
           // 스크린샷 저장 (확인용)
           await saveErrorScreenshot(purchasePage, 'dry-run-before-buy');
 
-          // 팝업 닫기
-          await purchasePage.close();
+          // 팝업인 경우에만 닫기 (원래 페이지는 닫지 않음)
+          if (purchasePage !== page) {
+            await purchasePage.close();
+          }
 
           return [];
         }
@@ -147,14 +173,19 @@ export async function purchaseLotto(
         await closeBtn.waitFor({ state: 'visible', timeout: 10000 });
         await closeBtn.click();
 
-        // 팝업 닫기
-        await purchasePage.close();
+        // 팝업인 경우에만 닫기 (원래 페이지는 닫지 않음)
+        if (purchasePage !== page) {
+          await purchasePage.close();
+        }
 
         return tickets;
       } catch (error) {
         if (purchasePage) {
           await saveErrorScreenshot(purchasePage, 'purchase-error');
-          await purchasePage.close();
+          // 팝업인 경우에만 닫기
+          if (purchasePage !== page) {
+            await purchasePage.close();
+          }
         } else {
           await saveErrorScreenshot(page, 'purchase-error');
         }

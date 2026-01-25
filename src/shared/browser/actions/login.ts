@@ -57,11 +57,8 @@ export async function login(page: Page): Promise<void> {
 
       if (result === 'success') {
         console.log('로그인 성공');
-        // 메인 페이지로 이동 (구매 버튼이 있는 페이지)
-        await page.goto('https://www.dhlottery.co.kr/main', { timeout: 60000 });
-        await page.waitForLoadState('domcontentloaded');
-        // 페이지 로딩 완료 확인 - 로그인 상태 유지 확인
-        await page.getByRole('button', { name: '로그아웃' }).waitFor({ state: 'visible', timeout: 30000 });
+        console.log(`로그인 후 URL: ${page.url()}`);
+        // 로그인 후 페이지에서 바로 버튼 찾기 (메인 페이지로 이동하지 않음)
         return;
       }
 
@@ -74,11 +71,8 @@ export async function login(page: Page): Promise<void> {
       const currentUrl = page.url();
       if (!currentUrl.includes('login') && !currentUrl.includes('Login')) {
         console.log('로그인 성공 (URL 확인)');
-        // 메인 페이지로 이동
-        await page.goto('https://www.dhlottery.co.kr/main', { timeout: 60000 });
-        await page.waitForLoadState('domcontentloaded');
-        // 페이지 로딩 완료 확인 - 로그인 상태 유지 확인
-        await page.getByRole('button', { name: '로그아웃' }).waitFor({ state: 'visible', timeout: 30000 });
+        console.log(`로그인 후 URL: ${currentUrl}`);
+        // 로그인 후 페이지에서 바로 버튼 찾기 (메인 페이지로 이동하지 않음)
         return;
       }
 
