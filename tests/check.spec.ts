@@ -58,9 +58,12 @@ async function performLogin(page: Page): Promise<boolean> {
 }
 
 test.describe('당첨번호 조회 테스트 (로그인 불필요)', () => {
+  // 외부 사이트 의존 테스트 - 타임아웃 증가
+  test.slow();
+
   test('메인 페이지에서 로또 6/45 슬라이더가 표시된다', async ({ page }) => {
-    await page.goto(MAIN_URL, { timeout: 60000 });
-    await page.waitForLoadState('networkidle');
+    await page.goto(MAIN_URL, { timeout: 120000 });
+    await page.waitForLoadState('domcontentloaded');
 
     // 로또 6/45 슬라이더 확인
     const swiperContainer = page.locator('.swiper.lt645');
@@ -68,8 +71,8 @@ test.describe('당첨번호 조회 테스트 (로그인 불필요)', () => {
   });
 
   test('메인 페이지에서 당첨 번호가 표시된다', async ({ page }) => {
-    await page.goto(MAIN_URL, { timeout: 60000 });
-    await page.waitForLoadState('networkidle');
+    await page.goto(MAIN_URL, { timeout: 120000 });
+    await page.waitForLoadState('domcontentloaded');
 
     // 로또 번호 볼 요소 확인
     const ballElements = page.locator('.swiper.lt645 .lt645-list .lt-ball');
@@ -80,8 +83,8 @@ test.describe('당첨번호 조회 테스트 (로그인 불필요)', () => {
   });
 
   test('당첨 번호 슬라이드에서 회차 정보를 추출할 수 있다', async ({ page }) => {
-    await page.goto(MAIN_URL, { timeout: 60000 });
-    await page.waitForLoadState('networkidle');
+    await page.goto(MAIN_URL, { timeout: 120000 });
+    await page.waitForLoadState('domcontentloaded');
 
     // 회차 정보 추출
     const roundText = await page.locator('.swiper.lt645 .lt645-round').first().textContent();
@@ -91,8 +94,8 @@ test.describe('당첨번호 조회 테스트 (로그인 불필요)', () => {
   });
 
   test('당첨 번호가 1~45 범위 내에 있다', async ({ page }) => {
-    await page.goto(MAIN_URL, { timeout: 60000 });
-    await page.waitForLoadState('networkidle');
+    await page.goto(MAIN_URL, { timeout: 120000 });
+    await page.waitForLoadState('domcontentloaded');
 
     // 번호 추출
     const ballElements = page.locator('.swiper.lt645 .lt645-list .lt-ball');
