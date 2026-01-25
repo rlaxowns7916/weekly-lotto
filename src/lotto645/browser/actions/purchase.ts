@@ -60,7 +60,7 @@ async function executePurchase(page: Page): Promise<void> {
   console.log('구매하기 버튼 클릭...');
   await buyBtn.click();
 
-  // 5. 구매 확인 팝업에서 확인 클릭
+  // 5. 구매 확인 팝업에서 확인 클릭 + 구매 API 응답 대기
   const confirmPopupBtn = page
     .locator(purchaseSelectors.confirmPopup)
     .getByRole(purchaseSelectors.confirmPopupButton.role, {
@@ -72,25 +72,30 @@ async function executePurchase(page: Page): Promise<void> {
   // 구매 직전 스크린샷 (디버깅용)
   await saveErrorScreenshot(page, 'before-purchase-confirm');
 
-  await confirmPopupBtn.click();
+  // 구매 API 응답을 기다리면서 확인 버튼 클릭
+  const [purchaseResponse] = await Promise.all([
+    page.waitForResponse(
+      (resp) => resp.url().includes('gameBuy.do') && resp.status() === 200,
+      { timeout: 30000 }
+    ).catch((e) => {
+      console.error('구매 API 응답 대기 실패:', e.message);
+      return null;
+    }),
+    confirmPopupBtn.click(),
+  ]);
 
-  // 잠시 대기 후 스크린샷 (구매 결과 확인용)
-  await page.waitForTimeout(2000);
-  await saveErrorScreenshot(page, 'after-purchase-confirm');
-
-  // 6. 구매 결과 대기 - 확인 팝업이 닫히고 결과가 나타날 때까지
-  // 확인 팝업이 닫힐 때까지 대기
-  await page.locator(purchaseSelectors.confirmPopup)
-    .waitFor({ state: 'hidden', timeout: 10000 })
-    .catch(() => console.log('확인 팝업 닫힘 대기 타임아웃'));
-
-  // 구매 처리 대기 (서버 응답 시간 고려)
-  await page.waitForTimeout(3000);
+  if (purchaseResponse) {
+    const responseText = await purchaseResponse.text().catch(() => '');
+    console.log(`구매 API 응답: ${responseText.substring(0, 200)}`);
+  } else {
+    console.warn('구매 API 호출이 감지되지 않음');
+    await saveErrorScreenshot(page, 'no-purchase-api');
+  }
 
   // 결과 스크린샷
-  await saveErrorScreenshot(page, 'purchase-result');
+  await saveErrorScreenshot(page, 'after-purchase-confirm');
 
-  // 구매 완료 레이어 확인 (#closeLayer 버튼이 있는 결과 팝업)
+  // 6. 구매 완료 레이어 확인 (#closeLayer 버튼이 있는 결과 팝업)
   const closeBtn = page.locator('#closeLayer');
   const hasCloseBtn = await closeBtn.isVisible().catch(() => false);
   console.log(`구매 완료 레이어 표시: ${hasCloseBtn}`);
