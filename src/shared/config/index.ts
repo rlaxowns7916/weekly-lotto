@@ -21,10 +21,10 @@ const emailConfigSchema = z.object({
  * 전체 설정 스키마
  */
 const configSchema = z.object({
-  /** 동행복권 로그인 아이디 */
-  username: z.string().min(1, 'LOTTO_USERNAME 필수'),
-  /** 동행복권 로그인 비밀번호 */
-  password: z.string().min(1, 'LOTTO_PASSWORD 필수'),
+  /** 동행복권 로그인 아이디 (로그인 필요 기능용) */
+  username: z.string().min(1).optional(),
+  /** 동행복권 로그인 비밀번호 (로그인 필요 기능용) */
+  password: z.string().min(1).optional(),
   /** 이메일 설정 (선택) */
   email: emailConfigSchema,
   /** 브라우저 표시 여부 (headed 모드) */
@@ -47,7 +47,7 @@ export type EmailConfig = z.infer<typeof emailConfigSchema>;
  * 환경 변수에서 설정 로드
  * @throws {z.ZodError} 필수 환경 변수가 없거나 형식이 잘못된 경우
  */
-export function loadConfig(): Config {
+function loadConfig(): Config {
   // 이메일 설정이 모두 있는 경우에만 포함
   const hasEmailConfig = process.env.LOTTO_EMAIL_SMTP_HOST && process.env.LOTTO_EMAIL_SMTP_PORT;
 
@@ -92,9 +92,3 @@ export function getConfig(): Config {
   return _config;
 }
 
-/**
- * 설정 캐시 초기화 (테스트용)
- */
-export function resetConfig(): void {
-  _config = null;
-}

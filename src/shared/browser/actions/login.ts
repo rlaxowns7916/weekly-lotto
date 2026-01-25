@@ -19,6 +19,12 @@ import { withRetry } from '../../utils/retry.js';
 export async function login(page: Page): Promise<void> {
   const config = getConfig();
 
+  if (!config.username || !config.password) {
+    throw new Error('로그인 실패: LOTTO_USERNAME, LOTTO_PASSWORD 환경변수가 필요합니다');
+  }
+
+  const { username, password } = config;
+
   await withRetry(
     async () => {
       // 로그인 페이지로 직접 이동
@@ -31,13 +37,13 @@ export async function login(page: Page): Promise<void> {
       });
       await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
       await usernameInput.click();
-      await usernameInput.fill(config.username);
+      await usernameInput.fill(username);
 
       // 비밀번호 입력
       const passwordInput = page.getByRole(loginSelectors.passwordInput.role, {
         name: loginSelectors.passwordInput.name,
       });
-      await passwordInput.fill(config.password);
+      await passwordInput.fill(password);
 
       // Enter 키로 로그인 제출
       await passwordInput.press('Enter');
