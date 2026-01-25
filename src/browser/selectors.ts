@@ -10,7 +10,7 @@
  */
 export const loginSelectors = {
   /** 로그인 페이지 URL (직접 접근) */
-  url: 'https://www.dhlottery.co.kr/user.do?method=login',
+  url: 'https://www.dhlottery.co.kr/login',
 
   /** 아이디 입력 필드 (role 기반) */
   usernameInput: { role: 'textbox' as const, name: '아이디' },
