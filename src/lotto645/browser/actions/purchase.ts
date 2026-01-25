@@ -68,13 +68,49 @@ async function executePurchase(page: Page): Promise<void> {
     });
   await confirmPopupBtn.waitFor({ state: 'visible', timeout: 30000 });
   console.log('구매 확인 팝업 - 확인 클릭...');
+
+  // 구매 직전 스크린샷 (디버깅용)
+  await saveErrorScreenshot(page, 'before-purchase-confirm');
+
   await confirmPopupBtn.click();
 
-  // 6. 구매 완료 대기
+  // 잠시 대기 후 스크린샷 (구매 결과 확인용)
+  await page.waitForTimeout(2000);
+  await saveErrorScreenshot(page, 'after-purchase-confirm');
+
+  // 6. 구매 결과 대기 및 확인
   await page
     .locator('.selected_num_list, #closeLayer, .layer-alert')
     .first()
     .waitFor({ state: 'attached', timeout: 30000 });
+
+  // 에러 팝업 확인 (.layer-alert에 에러 메시지가 있는지)
+  const errorAlert = page.locator('.layer-alert');
+  if (await errorAlert.isVisible().catch(() => false)) {
+    const errorMessage = await errorAlert.textContent().catch(() => '');
+    const cleanMessage = errorMessage?.replace(/\s+/g, ' ').trim() || '알 수 없는 오류';
+
+    // 에러 메시지 확인
+    if (
+      cleanMessage.includes('예치금') ||
+      cleanMessage.includes('잔액') ||
+      cleanMessage.includes('세션') ||
+      cleanMessage.includes('로그인') ||
+      cleanMessage.includes('실패') ||
+      cleanMessage.includes('오류')
+    ) {
+      console.error(`구매 실패 팝업: ${cleanMessage}`);
+      throw new Error(`구매 실패: ${cleanMessage}`);
+    }
+    console.log(`알림 팝업 내용: ${cleanMessage}`);
+  }
+
+  // 구매 성공 확인 (번호 목록이 보이는지)
+  const selectedNumbers = page.locator('.selected_num_list');
+  if (await selectedNumbers.isVisible().catch(() => false)) {
+    const numbersText = await selectedNumbers.textContent().catch(() => '');
+    console.log(`구매 번호 확인: ${numbersText?.replace(/\s+/g, ' ').trim()}`);
+  }
 
   // 7. 닫기 버튼 클릭 (있으면)
   const closeBtn = page.locator(purchaseSelectors.closeButton);
