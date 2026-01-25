@@ -44,8 +44,8 @@ export async function createBrowserSession(
     viewport: { width: 1280, height: 720 },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
-    // 실패 시 스크린샷 저장 설정
-    recordVideo: undefined, // 필요시 { dir: 'videos/' }
+    // 데스크톱 Chrome User-Agent (headless shell 봇 감지 우회)
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   });
 
   const page = await context.newPage();
