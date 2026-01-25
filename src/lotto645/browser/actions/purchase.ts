@@ -78,11 +78,22 @@ async function executePurchase(page: Page): Promise<void> {
   await page.waitForTimeout(2000);
   await saveErrorScreenshot(page, 'after-purchase-confirm');
 
-  // 6. 구매 결과 대기 및 확인
-  await page
-    .locator('.selected_num_list, #closeLayer, .layer-alert')
-    .first()
-    .waitFor({ state: 'attached', timeout: 30000 });
+  // 6. 구매 결과 대기 - 확인 팝업이 닫히고 결과가 나타날 때까지
+  // 확인 팝업이 닫힐 때까지 대기
+  await page.locator(purchaseSelectors.confirmPopup)
+    .waitFor({ state: 'hidden', timeout: 10000 })
+    .catch(() => console.log('확인 팝업 닫힘 대기 타임아웃'));
+
+  // 구매 처리 대기 (서버 응답 시간 고려)
+  await page.waitForTimeout(3000);
+
+  // 결과 스크린샷
+  await saveErrorScreenshot(page, 'purchase-result');
+
+  // 구매 완료 레이어 확인 (#closeLayer 버튼이 있는 결과 팝업)
+  const closeBtn = page.locator('#closeLayer');
+  const hasCloseBtn = await closeBtn.isVisible().catch(() => false);
+  console.log(`구매 완료 레이어 표시: ${hasCloseBtn}`);
 
   // 에러 팝업 확인 (.layer-alert에 에러 메시지가 있는지)
   const errorAlert = page.locator('.layer-alert');
@@ -105,18 +116,12 @@ async function executePurchase(page: Page): Promise<void> {
     console.log(`알림 팝업 내용: ${cleanMessage}`);
   }
 
-  // 구매 성공 확인 (번호 목록이 보이는지)
-  const selectedNumbers = page.locator('.selected_num_list');
-  if (await selectedNumbers.isVisible().catch(() => false)) {
-    const numbersText = await selectedNumbers.textContent().catch(() => '');
-    console.log(`구매 번호 확인: ${numbersText?.replace(/\s+/g, ' ').trim()}`);
-  }
-
-  // 7. 닫기 버튼 클릭 (있으면)
-  const closeBtn = page.locator(purchaseSelectors.closeButton);
-  const closeVisible = await closeBtn.isVisible().catch(() => false);
-  if (closeVisible) {
+  // 7. 닫기 버튼 클릭 (구매 결과 팝업이 있으면)
+  if (hasCloseBtn) {
     await closeBtn.click();
+    console.log('구매 결과 팝업 닫기 완료');
+  } else {
+    console.warn('구매 결과 팝업이 표시되지 않음 - 구매 실패 가능성');
   }
 
   console.log('구매 요청 완료');
