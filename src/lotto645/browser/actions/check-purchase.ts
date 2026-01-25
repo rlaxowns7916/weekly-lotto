@@ -24,37 +24,46 @@ interface TicketDetails extends PurchasedTicket {
 /**
  * 구매 내역 페이지로 이동
  */
-export async function navigateToPurchaseHistory(page: Page): Promise<void> {
+async function navigateToPurchaseHistory(page: Page): Promise<void> {
   await withRetry(
     async () => {
       // 구매내역 페이지로 직접 이동
       await page.goto('https://www.dhlottery.co.kr/mypage/mylotteryledger', { timeout: 60000 });
       await page.waitForLoadState('networkidle');
 
-      // 상세 검색 펼치기
-      const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
-      await detailBtn.waitFor({ state: 'visible', timeout: 30000 });
-      await detailBtn.click();
+      // 페이지 최상단으로 스크롤 (상세 검색 버튼이 보이도록)
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(500); // 렌더링 안정화
 
-      // 최근 1주일 버튼이 보일 때까지 대기 후 클릭
+      // 상세 검색 펼치기 (최근 1주일 버튼이 상세 검색 영역 안에 있음)
+      const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+      if (await detailBtn.isVisible().catch(() => false)) {
+        await detailBtn.scrollIntoViewIfNeeded();
+        await detailBtn.click({ force: true });
+        await page.waitForTimeout(300); // 영역 펼쳐지는 애니메이션 대기
+      }
+
+      // 최근 1주일 버튼 클릭
       const weekBtn = page.getByRole('button', { name: '최근 1주일' });
       await weekBtn.waitFor({ state: 'visible', timeout: 10000 });
-      await weekBtn.click();
+      await weekBtn.scrollIntoViewIfNeeded();
+      await weekBtn.click({ force: true });
 
       // 복권 선택 드롭다운이 활성화될 때까지 대기 후 로또6/45 선택
       const selectBox = page.locator('#ltGdsSelect');
       await selectBox.waitFor({ state: 'attached', timeout: 10000 });
       await selectBox.selectOption('LO40');
 
-      // 검색 버튼 클릭
+      // 검색 버튼 클릭 + API 응답 대기
       const searchBtn = page.getByRole('button', { name: '검색', exact: true });
       await searchBtn.waitFor({ state: 'visible', timeout: 10000 });
-      await searchBtn.click();
 
-      // 검색 결과 로딩 대기: 결과 행이 나타나거나 "조회 결과가 없습니다" 메시지가 나타날 때까지
-      await Promise.race([
-        page.locator('li.whl-row').first().waitFor({ state: 'attached', timeout: 30000 }),
-        page.locator('text=조회 결과가 없습니다').waitFor({ state: 'visible', timeout: 30000 }),
+      await Promise.all([
+        page.waitForResponse(
+          (resp) => resp.url().includes('selectMyLotteryledger.do') && resp.status() === 200,
+          { timeout: 30000 }
+        ),
+        searchBtn.click(),
       ]);
 
       console.log('구매 내역 페이지 이동 완료');
@@ -76,7 +85,7 @@ export async function navigateToPurchaseHistory(page: Page): Promise<void> {
  * @param modal 티켓 모달 Locator (#Lotto645TicketP)
  * @returns 파싱된 티켓 정보
  */
-export async function parseTicketModal(modal: Locator): Promise<TicketDetails | null> {
+async function parseTicketModal(modal: Locator): Promise<TicketDetails | null> {
   try {
     const modalText = await modal.textContent();
 
@@ -142,7 +151,7 @@ export async function parseTicketModal(modal: Locator): Promise<TicketDetails | 
  * @param barcodeElement 바코드 요소 (span.whl-txt.barcd)
  * @returns 티켓 상세 정보
  */
-export async function getTicketDetails(page: Page, barcodeElement: Locator): Promise<TicketDetails | null> {
+async function getTicketDetails(page: Page, barcodeElement: Locator): Promise<TicketDetails | null> {
   return await withRetry(
     async () => {
       // 바코드 클릭하여 모달 열기
@@ -182,7 +191,7 @@ export async function getTicketDetails(page: Page, barcodeElement: Locator): Pro
 /**
  * 최근 구매 내역에서 첫 번째 티켓 조회
  */
-export async function getRecentPurchasedNumbers(page: Page): Promise<PurchasedTicket | null> {
+async function getRecentPurchasedNumbers(page: Page): Promise<PurchasedTicket | null> {
   try {
     // 이미 로또6/45로 필터링된 상태
     const barcodeElement = page.locator('span.whl-txt.barcd').first();
@@ -206,6 +215,38 @@ export async function getRecentPurchasedNumbers(page: Page): Promise<PurchasedTi
   } catch (error) {
     await saveErrorScreenshot(page, 'parse-numbers-error');
     console.error('번호 파싱 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * 최근 N분 내 구매 여부만 확인 (구매 전 중복 체크용)
+ *
+ * verifyRecentPurchase와 달리 경고 로그 없이 조용히 확인만 함.
+ * 구매 시도 전에 이미 구매된 티켓이 있는지 확인하는 용도.
+ *
+ * @param page Playwright Page
+ * @param maxMinutes 최근 구매로 간주할 시간 (분)
+ * @returns 최근 구매된 티켓 또는 null
+ */
+export async function checkRecentPurchase(page: Page, maxMinutes: number): Promise<PurchasedTicket | null> {
+  try {
+    await navigateToPurchaseHistory(page);
+
+    const ticket = await getRecentPurchasedNumbers(page);
+
+    if (!ticket || !ticket.saleDate) {
+      return null;
+    }
+
+    if (!isWithinMinutes(ticket.saleDate, maxMinutes)) {
+      return null;
+    }
+
+    return ticket;
+  } catch (error) {
+    // 구매 확인 실패 시 null 반환 (구매 진행 허용)
+    console.log('최근 구매 확인 중 오류 (무시):', error);
     return null;
   }
 }
@@ -239,14 +280,6 @@ export async function verifyRecentPurchase(page: Page, maxMinutes: number = 5): 
 
   console.log(`구매 검증 성공: ${maxMinutes}분 이내 구매 확인됨`);
   return ticket;
-}
-
-/**
- * 구매 내역 조회 및 번호 확인 (전체 플로우)
- */
-export async function checkPurchasedNumbers(page: Page): Promise<PurchasedTicket | null> {
-  await navigateToPurchaseHistory(page);
-  return await getRecentPurchasedNumbers(page);
 }
 
 /**
@@ -319,16 +352,6 @@ export async function getTicketsByRound(
 }
 
 /**
- * 당첨 확인을 위한 티켓 조회 결과
- */
-export interface TicketCheckResult {
-  /** 조회된 회차 */
-  round: number;
-  /** 해당 회차의 티켓 목록 */
-  tickets: PurchasedTicket[];
-}
-
-/**
  * 일주일치 전체 구매 내역 조회
  *
  * @param page Playwright Page
@@ -342,8 +365,7 @@ export async function getAllTicketsInWeek(
   await navigateToPurchaseHistory(page);
 
   const tickets: PurchasedTicket[] = [];
-  
-  // 이미 로또6/45로 필터링된 상태이므로 바코드만 찾으면 됨
+
   const barcodeElements = page.locator('span.whl-txt.barcd');
   const totalCount = await barcodeElements.count();
 
@@ -384,7 +406,7 @@ export async function getAllTicketsInWeek(
  * @param tickets 티켓 목록
  * @returns 회차별 티켓 Map
  */
-export function groupTicketsByRound(tickets: PurchasedTicket[]): Map<number, PurchasedTicket[]> {
+function groupTicketsByRound(tickets: PurchasedTicket[]): Map<number, PurchasedTicket[]> {
   const grouped = new Map<number, PurchasedTicket[]>();
 
   for (const ticket of tickets) {
