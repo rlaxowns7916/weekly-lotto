@@ -9,13 +9,11 @@
 
 import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
 import { login } from '../../shared/browser/actions/login.js';
-import { purchaseLotto } from '../browser/actions/purchase.js';
-import { verifyRecentPurchase } from '../browser/actions/check-purchase.js';
+import { buyLottoViaApi } from '../api/purchase-api.js';
 import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
 import {
   purchaseSuccessTemplate,
   purchaseFailureTemplate,
-  purchaseVerificationFailedTemplate,
 } from '../services/email.templates.js';
 
 async function main(): Promise<void> {
@@ -38,52 +36,38 @@ async function main(): Promise<void> {
     console.log('1. 로그인 중...');
     await login(session.page);
 
-    // 2. 로또 구매 (또는 구매 준비)
-    console.log('2. 로또 구매 페이지 이동 중...');
-    await purchaseLotto(session.page, dryRun);
-
-    // 3. 결과 출력
+    // 2. 로또 구매 (API 직접 호출)
     if (dryRun) {
+      console.log('\n2. DRY RUN 모드: API 호출 테스트...');
+      // DRY RUN에서는 회차 정보만 조회
+      const { getCurrentRound } = await import('../api/purchase-api.js');
+      const round = await getCurrentRound(session.context);
+      console.log(`   현재 회차: ${round}회`);
       console.log('\n✅ DRY RUN 완료!');
-      console.log('   구매 직전 화면까지 정상 진행됨');
-      console.log('   스크린샷: screenshots/dry-run-before-buy-*.png');
+      console.log('   API 연결 정상, 실제 구매는 진행되지 않음');
     } else {
+      console.log('\n2. 로또 구매 (API 직접 호출)...');
+      const tickets = await buyLottoViaApi(session.context, 1);
+
       console.log('\n✅ 구매 완료!');
 
-      // 4. 구매 내역에서 번호 확인 (5분 이내 구매만 유효)
-      console.log('\n3. 구매 내역에서 번호 확인 중...');
-      const purchasedTicket = await verifyRecentPurchase(session.page, 5);
-
-      if (purchasedTicket && purchasedTicket.numbers.length > 0) {
+      if (tickets.length > 0) {
+        const ticket = tickets[0];
         console.log('\n📋 구매한 번호:');
-        console.log(`   회차: ${purchasedTicket.round}회`);
-        console.log(`   슬롯: ${purchasedTicket.slot} (${purchasedTicket.mode === 'auto' ? '자동' : '수동'})`);
-        console.log(`   번호: ${purchasedTicket.numbers.join(', ')}`);
-        if (purchasedTicket.saleDate) {
-          console.log(`   발행일: ${purchasedTicket.saleDate}`);
-        }
+        console.log(`   회차: ${ticket.round}회`);
+        console.log(`   슬롯: ${ticket.slot} (${ticket.mode === 'auto' ? '자동' : '수동'})`);
+        console.log(`   번호: ${ticket.numbers.join(', ')}`);
 
         // 이메일 알림 전송
         if (hasEmailConfig()) {
-          console.log('\n4. 이메일 알림 전송 중...');
-          const emailTemplate = purchaseSuccessTemplate(purchasedTicket);
+          console.log('\n3. 이메일 알림 전송 중...');
+          const emailTemplate = purchaseSuccessTemplate(ticket);
           const result = await sendEmail(emailTemplate);
           if (result.success) {
             console.log('   ✅ 이메일 전송 완료');
           } else {
             console.log(`   ⚠️ 이메일 전송 실패: ${result.error}`);
           }
-        }
-      } else {
-        console.log('\n⚠️ 번호 확인 실패 (구매 검증 실패 - 5분 이내 구매 내역 없음)');
-
-        // 검증 실패 이메일 전송
-        if (hasEmailConfig()) {
-          console.log('\n4. 검증 실패 이메일 전송 중...');
-          const emailTemplate = purchaseVerificationFailedTemplate(
-            '5분 이내 구매 내역을 찾을 수 없습니다. 동행복권 사이트에서 직접 확인해주세요.'
-          );
-          await sendEmail(emailTemplate);
         }
       }
     }
