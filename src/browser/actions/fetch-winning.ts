@@ -27,9 +27,12 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
     async () => {
       // 메인 페이지로 이동
       await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
-      await page.waitForTimeout(1000);
 
-      // 로또 6/45 슬라이더에서 active 슬라이드 찾기
+      // 로또 6/45 슬라이더가 로드될 때까지 대기
+      const swiperContainer = page.locator('.swiper.lt645');
+      await swiperContainer.waitFor({ state: 'attached', timeout: 30000 });
+
+      // active 슬라이드 찾기
       const activeSlide = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox.swiper-slide-active');
       const isVisible = await activeSlide.isVisible().catch(() => false);
 
@@ -72,11 +75,10 @@ export async function fetchWinningNumbersByRound(
     async () => {
       // 메인 페이지로 이동
       await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
-      await page.waitForTimeout(1000);
 
       // 해당 회차 슬라이드 찾기 (data-ltepsd 속성으로)
       const targetSlide = page.locator(`.swiper.lt645 .swiper-slide.lt645-inbox[data-ltepsd="${targetRound}"]`);
-      await targetSlide.waitFor({ state: 'visible', timeout: 10000 });
+      await targetSlide.waitFor({ state: 'visible', timeout: 30000 });
 
       return await parseWinningSlide(targetSlide);
     },

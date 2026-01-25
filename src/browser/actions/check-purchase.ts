@@ -35,25 +35,27 @@ export async function navigateToPurchaseHistory(page: Page): Promise<void> {
       const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
       await detailBtn.waitFor({ state: 'visible', timeout: 30000 });
       await detailBtn.click();
-      await page.waitForTimeout(500);
 
-      // 최근 1주일 선택
+      // 최근 1주일 버튼이 보일 때까지 대기 후 클릭
       const weekBtn = page.getByRole('button', { name: '최근 1주일' });
       await weekBtn.waitFor({ state: 'visible', timeout: 10000 });
       await weekBtn.click();
 
-      // 검색 클릭
+      // 복권 선택 드롭다운이 활성화될 때까지 대기 후 로또6/45 선택
+      const selectBox = page.locator('#ltGdsSelect');
+      await selectBox.waitFor({ state: 'attached', timeout: 10000 });
+      await selectBox.selectOption('LO40');
+
+      // 검색 버튼 클릭
       const searchBtn = page.getByRole('button', { name: '검색', exact: true });
       await searchBtn.waitFor({ state: 'visible', timeout: 10000 });
       await searchBtn.click();
-      await page.waitForLoadState('networkidle');
 
-      // 검색 결과 로딩 대기
+      // 검색 결과 로딩 대기: 결과 행이 나타나거나 "조회 결과가 없습니다" 메시지가 나타날 때까지
       await Promise.race([
-        page.locator('text=로또6/45').first().waitFor({ timeout: 10000 }),
-        page.locator('text=내역이 없습니다').waitFor({ timeout: 10000 }),
-        page.waitForTimeout(5000),
-      ]).catch(() => {});
+        page.locator('li.whl-row').first().waitFor({ state: 'attached', timeout: 30000 }),
+        page.locator('text=조회 결과가 없습니다').waitFor({ state: 'visible', timeout: 30000 }),
+      ]);
 
       console.log('구매 내역 페이지 이동 완료');
     },
@@ -150,14 +152,19 @@ export async function getTicketDetails(page: Page, barcodeElement: Locator): Pro
       // 모달 로딩 대기
       const modal = page.locator('#Lotto645TicketP');
       await modal.waitFor({ state: 'visible', timeout: 15000 });
-      await page.waitForTimeout(1500);
+
+      // 모달 내부 티켓 번호가 로드될 때까지 대기
+      await modal.locator('.ticket-num-box').first().waitFor({ state: 'attached', timeout: 10000 });
 
       // 티켓 정보 파싱
       const ticket = await parseTicketModal(modal);
 
-      // 모달 닫기
-      await modal.locator('button').first().click().catch(() => {});
-      await page.waitForTimeout(300);
+      // 모달 닫기 버튼 클릭
+      const closeBtn = modal.locator('button').first();
+      await closeBtn.click().catch(() => {});
+
+      // 모달이 닫힐 때까지 대기
+      await modal.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 
       return ticket;
     },
@@ -177,9 +184,8 @@ export async function getTicketDetails(page: Page, barcodeElement: Locator): Pro
  */
 export async function getRecentPurchasedNumbers(page: Page): Promise<PurchasedTicket | null> {
   try {
-    // 로또6/45 행만 필터링
-    const lottoRow = page.locator('tr:has-text("로또6/45")').first();
-    const barcodeElement = lottoRow.locator('span.whl-txt.barcd');
+    // 이미 로또6/45로 필터링된 상태
+    const barcodeElement = page.locator('span.whl-txt.barcd').first();
     const isVisible = await barcodeElement.isVisible().catch(() => false);
 
     if (!isVisible) {
@@ -260,9 +266,9 @@ export async function getTicketsByRound(
 
   const tickets: PurchasedTicket[] = [];
   
-  // 로또6/45 행만 필터링
-  const lottoRows = page.locator('tr:has-text("로또6/45")');
-  const totalCount = await lottoRows.count();
+  // 이미 로또6/45로 필터링된 상태
+  const barcodeElements = page.locator('span.whl-txt.barcd');
+  const totalCount = await barcodeElements.count();
 
   if (totalCount === 0) {
     console.warn('로또6/45 구매 내역이 없습니다');
@@ -279,8 +285,7 @@ export async function getTicketsByRound(
     if (tickets.length >= maxCount) break;
 
     try {
-      const row = lottoRows.nth(i);
-      const barcodeElement = row.locator('span.whl-txt.barcd');
+      const barcodeElement = barcodeElements.nth(i);
       const isVisible = await barcodeElement.isVisible().catch(() => false);
 
       if (!isVisible) continue;
@@ -338,21 +343,20 @@ export async function getAllTicketsInWeek(
 
   const tickets: PurchasedTicket[] = [];
   
-  // 로또6/45 행만 필터링 (테이블에서 '로또6/45' 텍스트가 포함된 행의 바코드)
-  const lottoRows = page.locator('tr:has-text("로또6/45")');
-  const rowCount = await lottoRows.count();
+  // 이미 로또6/45로 필터링된 상태이므로 바코드만 찾으면 됨
+  const barcodeElements = page.locator('span.whl-txt.barcd');
+  const totalCount = await barcodeElements.count();
 
-  if (rowCount === 0) {
+  if (totalCount === 0) {
     console.warn('로또6/45 구매 내역이 없습니다');
     return tickets;
   }
 
-  console.log(`로또6/45 구매 내역 ${rowCount}개 발견 (최대 ${maxCount}개 조회)`);
+  console.log(`로또6/45 구매 내역 ${totalCount}개 발견 (최대 ${maxCount}개 조회)`);
 
-  for (let i = 0; i < Math.min(rowCount, maxCount); i++) {
+  for (let i = 0; i < Math.min(totalCount, maxCount); i++) {
     try {
-      const row = lottoRows.nth(i);
-      const barcodeElement = row.locator('span.whl-txt.barcd');
+      const barcodeElement = barcodeElements.nth(i);
       const isVisible = await barcodeElement.isVisible().catch(() => false);
 
       if (!isVisible) continue;
@@ -363,7 +367,7 @@ export async function getAllTicketsInWeek(
 
       tickets.push(ticket);
       console.log(
-        `[${tickets.length}/${Math.min(rowCount, maxCount)}] ${ticket.round}회 ${ticket.slot} (${ticket.mode}): ${ticket.numbers.join(', ')}`
+        `[${tickets.length}/${Math.min(totalCount, maxCount)}] ${ticket.round}회 ${ticket.slot} (${ticket.mode}): ${ticket.numbers.join(', ')}`
       );
     } catch (error) {
       console.error(`티켓 ${i + 1} 조회 오류:`, error);

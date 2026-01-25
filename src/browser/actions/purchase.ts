@@ -23,25 +23,17 @@ export async function purchaseLotto(
   page: Page,
   dryRun: boolean = true
 ): Promise<PurchasedTicket[]> {
-  let purchasePage: Page | null = null;
-
   return await withRetry(
     async () => {
       try {
-        // 로또6/45 버튼 클릭 (새 팝업 열림)
-        const popupPromise = page.waitForEvent('popup');
-        await page.getByRole(purchaseSelectors.lottoButton.role, {
-          name: purchaseSelectors.lottoButton.name,
-        }).click();
-
-        // 새 팝업 페이지 대기
-        purchasePage = await popupPromise;
-        await purchasePage.waitForLoadState('networkidle');
+        // 로또 구매 페이지로 직접 이동
+        await page.goto('https://el.dhlottery.co.kr/game/TotalGame.jsp?LottoId=LO40', { timeout: 60000 });
+        await page.waitForLoadState('networkidle');
 
         // iframe 가져오기
-        const iframe = purchasePage.locator(`iframe[name="${purchaseSelectors.iframeName}"]`).contentFrame();
+        const iframe = page.locator(`iframe[name="${purchaseSelectors.iframeName}"]`).contentFrame();
 
-        // iframe 내부 콘텐츠가 로드될 때까지 대기
+        // 자동번호발급 링크가 보일 때까지 대기
         const autoNumberLink = iframe.getByRole(purchaseSelectors.autoNumberLink.role, {
           name: purchaseSelectors.autoNumberLink.name,
         });
@@ -63,10 +55,7 @@ export async function purchaseLotto(
           console.log('🔸 실제 구매를 원하면 dryRun: false로 실행하세요');
 
           // 스크린샷 저장 (확인용)
-          await saveErrorScreenshot(purchasePage, 'dry-run-before-buy');
-
-          // 팝업 닫기
-          await purchasePage.close();
+          await saveErrorScreenshot(page, 'dry-run-before-buy');
 
           return [];
         }
@@ -87,8 +76,8 @@ export async function purchaseLotto(
         await confirmPopupBtn.waitFor({ state: 'visible', timeout: 30000 });
         await confirmPopupBtn.click();
 
-        // 구매 완료 대기 (결과 팝업이 뜰 때까지)
-        await purchasePage.waitForTimeout(2000); // 구매 처리 시간 대기
+        // 구매 완료 대기: 결과 영역이 나타날 때까지
+        await iframe.locator('.selected_num_list, #closeLayer').first().waitFor({ state: 'attached', timeout: 30000 });
 
         // 구매 결과 파싱 (구매 완료 화면에서)
         const tickets = await parsePurchasedTickets(iframe);
@@ -106,17 +95,9 @@ export async function purchaseLotto(
         await closeBtn.waitFor({ state: 'visible', timeout: 10000 });
         await closeBtn.click();
 
-        // 팝업 닫기
-        await purchasePage.close();
-
         return tickets;
       } catch (error) {
-        if (purchasePage) {
-          await saveErrorScreenshot(purchasePage, 'purchase-error');
-          await purchasePage.close();
-        } else {
-          await saveErrorScreenshot(page, 'purchase-error');
-        }
+        await saveErrorScreenshot(page, 'purchase-error');
         throw error;
       }
     },
@@ -134,14 +115,14 @@ export async function purchaseLotto(
  * TODO: 실제 구매 결과 화면 구조에 맞게 구현 필요
  * 현재는 기본 5장 자동 구매로 가정
  */
-async function parsePurchasedTickets(iframe: FrameLocator): Promise<PurchasedTicket[]> {
+async function parsePurchasedTickets(container: Page | FrameLocator): Promise<PurchasedTicket[]> {
   const tickets: PurchasedTicket[] = [];
   const slots: TicketSlot[] = ['A', 'B', 'C', 'D', 'E'];
 
   try {
     // 구매 결과 영역에서 번호 추출 시도
     // 실제 사이트 구조에 따라 셀렉터 수정 필요
-    const resultRows = iframe.locator('.selected_num_list .selected_num');
+    const resultRows = container.locator('.selected_num_list .selected_num');
     const count = await resultRows.count();
 
     for (let i = 0; i < count && i < 5; i++) {
