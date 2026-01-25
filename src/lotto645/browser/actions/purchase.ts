@@ -6,10 +6,11 @@
  */
 
 import type { Page } from 'playwright';
-import type { PurchasedTicket, TicketSlot } from '../../domain/ticket.js';
+import type { PurchasedTicket } from '../../domain/ticket.js';
 import { purchaseSelectors } from '../selectors.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
 import { withRetry } from '../../../shared/utils/retry.js';
+import { verifyRecentPurchase } from './check-purchase.js';
 
 /**
  * 로또 구매
@@ -80,28 +81,32 @@ export async function purchaseLotto(
 
         // 6. 구매 완료 대기
         await page
-          .locator('.selected_num_list, #closeLayer')
+          .locator('.selected_num_list, #closeLayer, .layer-alert')
           .first()
           .waitFor({ state: 'attached', timeout: 30000 });
 
-        // 7. 구매 결과 파싱
-        const tickets = await parsePurchasedTickets(page);
-
-        console.log(`로또 구매 완료: ${tickets.length}장`);
-        for (const ticket of tickets) {
-          if (ticket.numbers.length > 0) {
-            console.log(`  슬롯 ${ticket.slot}: ${ticket.numbers.join(', ')}`);
-          }
-        }
-
-        // 8. 닫기 버튼 클릭
+        // 7. 닫기 버튼 클릭 (있으면)
         const closeBtn = page.locator(purchaseSelectors.closeButton);
         const closeVisible = await closeBtn.isVisible().catch(() => false);
         if (closeVisible) {
           await closeBtn.click();
         }
 
-        return tickets;
+        console.log('구매 요청 완료, 구매 내역에서 검증 중...');
+
+        // 8. 구매 내역 페이지에서 5분 이내 구매 검증
+        const verifiedTicket = await verifyRecentPurchase(page, 5);
+
+        if (!verifiedTicket) {
+          throw new Error('구매 검증 실패: 5분 이내 구매 내역을 찾을 수 없습니다');
+        }
+
+        console.log(`로또 구매 검증 완료!`);
+        console.log(`  회차: ${verifiedTicket.round}회`);
+        console.log(`  슬롯: ${verifiedTicket.slot} (${verifiedTicket.mode === 'auto' ? '자동' : '수동'})`);
+        console.log(`  번호: ${verifiedTicket.numbers.join(', ')}`);
+
+        return [verifiedTicket];
       } catch (error) {
         await saveErrorScreenshot(page, 'purchase-error');
         throw error;
@@ -113,68 +118,6 @@ export async function purchaseLotto(
       maxDelayMs: 15000,
     }
   );
-}
-
-/**
- * 구매 결과 화면에서 티켓 정보 파싱
- */
-async function parsePurchasedTickets(page: Page): Promise<PurchasedTicket[]> {
-  const tickets: PurchasedTicket[] = [];
-  const slots: TicketSlot[] = ['A', 'B', 'C', 'D', 'E'];
-
-  try {
-    // 회차 정보 추출
-    const roundText = await page.locator('text=/제\\d+회/').first().textContent();
-    const roundMatch = roundText?.match(/제(\d+)회/);
-    const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
-
-    // 구매 결과 영역에서 번호 추출
-    const resultRows = page.locator('.selected_num_list .selected_num');
-    const count = await resultRows.count();
-
-    for (let i = 0; i < count && i < 5; i++) {
-      const row = resultRows.nth(i);
-      const numbersText = await row.textContent();
-
-      if (numbersText) {
-        const numbers = numbersText
-          .trim()
-          .split(/\s+/)
-          .map((n) => parseInt(n, 10))
-          .filter((n) => !isNaN(n) && n >= 1 && n <= 45);
-
-        if (numbers.length === 6) {
-          tickets.push({
-            round,
-            slot: slots[i]!,
-            numbers,
-            mode: 'auto',
-          });
-        }
-      }
-    }
-
-    // 파싱 실패 시 기본값
-    if (tickets.length === 0) {
-      console.warn('구매 결과 파싱 실패, 기본값 사용');
-      tickets.push({
-        round,
-        slot: 'A',
-        numbers: [],
-        mode: 'auto',
-      });
-    }
-  } catch (parseError) {
-    console.warn('구매 결과 파싱 중 오류:', parseError);
-    tickets.push({
-      round: 0,
-      slot: 'A',
-      numbers: [],
-      mode: 'auto',
-    });
-  }
-
-  return tickets;
 }
 
 /**
