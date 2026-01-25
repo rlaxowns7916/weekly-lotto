@@ -21,32 +21,26 @@ export async function login(page: Page): Promise<void> {
 
   await withRetry(
     async () => {
-      // 메인 페이지로 이동
+      // 로그인 페이지로 직접 이동
       await page.goto(loginSelectors.url, { timeout: 60000 });
       await page.waitForLoadState('networkidle');
 
-      // 로그인 버튼 클릭
-      await page.getByRole(loginSelectors.loginButton.role, {
-        name: loginSelectors.loginButton.name,
-      }).click();
-
       // 아이디 입력
-      await page.getByRole(loginSelectors.usernameInput.role, {
+      const usernameInput = page.getByRole(loginSelectors.usernameInput.role, {
         name: loginSelectors.usernameInput.name,
-      }).click();
-      await page.getByRole(loginSelectors.usernameInput.role, {
-        name: loginSelectors.usernameInput.name,
-      }).fill(config.username);
+      });
+      await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
+      await usernameInput.click();
+      await usernameInput.fill(config.username);
 
       // 비밀번호 입력
-      await page.getByRole(loginSelectors.passwordInput.role, {
+      const passwordInput = page.getByRole(loginSelectors.passwordInput.role, {
         name: loginSelectors.passwordInput.name,
-      }).fill(config.password);
+      });
+      await passwordInput.fill(config.password);
 
       // Enter 키로 로그인 제출
-      await page.getByRole(loginSelectors.passwordInput.role, {
-        name: loginSelectors.passwordInput.name,
-      }).press('Enter');
+      await passwordInput.press('Enter');
 
       // 로그인 결과 대기: 로그아웃 버튼(성공) 또는 에러 메시지(실패)
       const result = await Promise.race([

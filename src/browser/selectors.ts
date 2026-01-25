@@ -9,18 +9,15 @@
  * 로그인 관련 셀렉터
  */
 export const loginSelectors = {
-  /** 메인 페이지 URL */
-  url: 'https://www.dhlottery.co.kr/',
-
-  /** 로그인 버튼 (role 기반) */
-  loginButton: { role: 'button' as const, name: '로그인' },
+  /** 로그인 페이지 URL (직접 접근) */
+  url: 'https://www.dhlottery.co.kr/user.do?method=login',
 
   /** 아이디 입력 필드 (role 기반) */
   usernameInput: { role: 'textbox' as const, name: '아이디' },
 
   /** 비밀번호 입력 필드 (role 기반) */
   passwordInput: { role: 'textbox' as const, name: '비밀번호' },
-} as const;
+} as const;;
 
 /**
  * 구매 관련 셀렉터
