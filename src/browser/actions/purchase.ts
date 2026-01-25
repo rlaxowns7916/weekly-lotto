@@ -28,17 +28,17 @@ export async function purchaseLotto(
   return await withRetry(
     async () => {
       try {
-        // 같은 컨텍스트에서 새 페이지 생성 (쿠키/세션 공유)
-        // headless 환경에서 팝업이 안정적으로 동작하지 않아 직접 페이지 생성 방식 사용
-        const context = page.context();
-        purchasePage = await context.newPage();
+        // 메인 페이지에서 로또6/45 버튼 클릭하여 팝업 열기 (세션 쿠키 공유됨)
+        console.log('로또6/45 버튼 클릭하여 구매 페이지 팝업 열기...');
+        const popupPromise = page.waitForEvent('popup', { timeout: 30000 });
+        await page.getByRole(purchaseSelectors.lottoButton.role, {
+          name: purchaseSelectors.lottoButton.name,
+        }).click();
 
-        // 구매 페이지로 직접 이동
-        console.log(`구매 페이지로 이동: ${purchaseSelectors.purchaseUrl}`);
-        await purchasePage.goto(purchaseSelectors.purchaseUrl, {
-          waitUntil: 'domcontentloaded',
-          timeout: 60000,
-        });
+        // 팝업 페이지 대기
+        purchasePage = await popupPromise;
+        console.log(`팝업 열림 - URL: ${purchasePage.url()}`);
+        await purchasePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
         console.log(`페이지 로드 완료 - URL: ${purchasePage.url()}`);
 
         // iframe이 존재하는지 먼저 확인
