@@ -58,6 +58,20 @@ export async function createBrowserSession(
     },
   });
 
+  // 모바일 리다이렉트 차단 (컨텍스트 수준 - 모든 페이지에 적용)
+  await context.route('**/*', async (route) => {
+    const url = route.request().url();
+
+    // 모바일 URL을 데스크톱으로 강제 변환
+    if (url.includes('m.dhlottery.co.kr')) {
+      const desktopUrl = url.replace('m.dhlottery.co.kr', 'www.dhlottery.co.kr');
+      console.log(`모바일 URL 차단: ${url} -> ${desktopUrl}`);
+      await route.continue({ url: desktopUrl });
+    } else {
+      await route.continue();
+    }
+  });
+
   const page = await context.newPage();
 
   // navigator.webdriver 숨기기 (headless 탐지 우회)
