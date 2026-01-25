@@ -58,16 +58,15 @@ export async function createBrowserSession(
     },
   });
 
-  // 모바일 리다이렉트 차단: 302/301 응답을 가로채서 리다이렉트 방지
-  await context.route('**/*', async (route) => {
+  // 모바일 리다이렉트 차단: document 요청만 가로채서 리다이렉트 방지
+  await context.route('**/*.{jsp,html,php}', async (route) => {
     const response = await route.fetch();
     const status = response.status();
     const location = response.headers()['location'] || '';
 
-    // 모바일로 리다이렉트하는 302/301 응답을 가로채서 원래 URL 유지
+    // 모바일로 리다이렉트하는 302/301 응답을 가로채서 데스크톱으로 변경
     if ((status === 301 || status === 302) && location.includes('m.dhlottery.co.kr')) {
       console.log(`모바일 리다이렉트 차단: ${status} -> ${location}`);
-      // 리다이렉트를 따르지 않고 빈 응답 반환 후 데스크톱 URL로 직접 이동
       const desktopLocation = location.replace('m.dhlottery.co.kr', 'el.dhlottery.co.kr');
       await route.fulfill({
         status: 302,
@@ -76,6 +75,14 @@ export async function createBrowserSession(
     } else {
       await route.fulfill({ response });
     }
+  });
+
+  // 모바일 URL 직접 접근 차단
+  await context.route('**/m.dhlottery.co.kr/**', async (route) => {
+    const url = route.request().url();
+    const desktopUrl = url.replace('m.dhlottery.co.kr', 'el.dhlottery.co.kr');
+    console.log(`모바일 URL 차단: ${url} -> ${desktopUrl}`);
+    await route.continue({ url: desktopUrl });
   });
 
   const page = await context.newPage();
