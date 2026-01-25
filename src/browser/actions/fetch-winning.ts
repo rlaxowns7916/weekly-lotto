@@ -7,6 +7,7 @@
 import type { Page } from 'playwright';
 import type { WinningNumbers } from '../../domain/winning.js';
 import { saveErrorScreenshot } from '../context.js';
+import { withRetry } from '../../utils/retry.js';
 
 /**
  * 동행복권 메인 페이지 URL
@@ -22,32 +23,38 @@ const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
  * @returns 당첨 번호 정보 (실패 시 null)
  */
 export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumbers | null> {
-  try {
-    // 메인 페이지로 이동
-    await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+  return await withRetry(
+    async () => {
+      // 메인 페이지로 이동
+      await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
+      await page.waitForTimeout(1000);
 
-    // 로또 6/45 슬라이더에서 active 슬라이드 찾기
-    const activeSlide = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox.swiper-slide-active');
-    const isVisible = await activeSlide.isVisible().catch(() => false);
+      // 로또 6/45 슬라이더에서 active 슬라이드 찾기
+      const activeSlide = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox.swiper-slide-active');
+      const isVisible = await activeSlide.isVisible().catch(() => false);
 
-    if (!isVisible) {
-      // active가 없으면 마지막 슬라이드 시도
-      const allSlides = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox');
-      const count = await allSlides.count();
-      if (count === 0) {
-        console.warn('당첨 번호 슬라이드를 찾을 수 없습니다');
-        return null;
+      if (!isVisible) {
+        // active가 없으면 마지막 슬라이드 시도
+        const allSlides = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox');
+        const count = await allSlides.count();
+        if (count === 0) {
+          throw new Error('당첨 번호 슬라이드를 찾을 수 없습니다');
+        }
+        return await parseWinningSlide(allSlides.nth(count - 1));
       }
-      return await parseWinningSlide(allSlides.nth(count - 1));
-    }
 
-    return await parseWinningSlide(activeSlide);
-  } catch (error) {
+      return await parseWinningSlide(activeSlide);
+    },
+    {
+      maxRetries: 3,
+      baseDelayMs: 2000,
+      maxDelayMs: 10000,
+    }
+  ).catch(async (error) => {
     await saveErrorScreenshot(page, 'fetch-winning-error');
     console.error('당첨 번호 조회 오류:', error);
     return null;
-  }
+  });
 }
 
 /**
@@ -61,26 +68,28 @@ export async function fetchWinningNumbersByRound(
   page: Page,
   targetRound: number
 ): Promise<WinningNumbers | null> {
-  try {
-    // 메인 페이지로 이동
-    await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1000);
+  return await withRetry(
+    async () => {
+      // 메인 페이지로 이동
+      await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
+      await page.waitForTimeout(1000);
 
-    // 해당 회차 슬라이드 찾기 (data-ltepsd 속성으로)
-    const targetSlide = page.locator(`.swiper.lt645 .swiper-slide.lt645-inbox[data-ltepsd="${targetRound}"]`);
-    const isVisible = await targetSlide.isVisible().catch(() => false);
+      // 해당 회차 슬라이드 찾기 (data-ltepsd 속성으로)
+      const targetSlide = page.locator(`.swiper.lt645 .swiper-slide.lt645-inbox[data-ltepsd="${targetRound}"]`);
+      await targetSlide.waitFor({ state: 'visible', timeout: 10000 });
 
-    if (!isVisible) {
-      console.warn(`${targetRound}회차 슬라이드를 찾을 수 없습니다`);
-      return null;
+      return await parseWinningSlide(targetSlide);
+    },
+    {
+      maxRetries: 3,
+      baseDelayMs: 2000,
+      maxDelayMs: 10000,
     }
-
-    return await parseWinningSlide(targetSlide);
-  } catch (error) {
+  ).catch(async (error) => {
     await saveErrorScreenshot(page, 'fetch-winning-by-round-error');
     console.error(`${targetRound}회 당첨 번호 조회 오류:`, error);
     return null;
-  }
+  });
 }
 
 /**

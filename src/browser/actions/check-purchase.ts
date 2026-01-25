@@ -11,6 +11,7 @@ import type { Page, Locator } from 'playwright';
 import type { PurchasedTicket } from '../../domain/ticket.js';
 import { parseSaleDate, isWithinMinutes } from '../../domain/ticket.js';
 import { saveErrorScreenshot } from '../context.js';
+import { withRetry } from '../../utils/retry.js';
 
 /**
  * 티켓 모달에서 파싱한 상세 정보
@@ -24,34 +25,47 @@ interface TicketDetails extends PurchasedTicket {
  * 구매 내역 페이지로 이동
  */
 export async function navigateToPurchaseHistory(page: Page): Promise<void> {
-  try {
-    // 구매내역 페이지로 직접 이동
-    await page.goto('https://www.dhlottery.co.kr/mypage/mylotteryledger');
-    await page.waitForLoadState('networkidle');
+  await withRetry(
+    async () => {
+      // 구매내역 페이지로 직접 이동
+      await page.goto('https://www.dhlottery.co.kr/mypage/mylotteryledger', { timeout: 60000 });
+      await page.waitForLoadState('networkidle');
 
-    // 상세 검색 펼치기
-    await page.getByRole('button', { name: '상세 검색 펼치기' }).click();
-    await page.waitForTimeout(500);
+      // 상세 검색 펼치기
+      const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
+      await detailBtn.waitFor({ state: 'visible', timeout: 30000 });
+      await detailBtn.click();
+      await page.waitForTimeout(500);
 
-    // 최근 1주일 선택
-    await page.getByRole('button', { name: '최근 1주일' }).click();
+      // 최근 1주일 선택
+      const weekBtn = page.getByRole('button', { name: '최근 1주일' });
+      await weekBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await weekBtn.click();
 
-    // 검색 클릭
-    await page.getByRole('button', { name: '검색', exact: true }).click();
-    await page.waitForLoadState('networkidle');
+      // 검색 클릭
+      const searchBtn = page.getByRole('button', { name: '검색', exact: true });
+      await searchBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await searchBtn.click();
+      await page.waitForLoadState('networkidle');
 
-    // 검색 결과 로딩 대기
-    await Promise.race([
-      page.locator('text=로또6/45').first().waitFor({ timeout: 10000 }),
-      page.locator('text=내역이 없습니다').waitFor({ timeout: 10000 }),
-      page.waitForTimeout(5000),
-    ]).catch(() => {});
+      // 검색 결과 로딩 대기
+      await Promise.race([
+        page.locator('text=로또6/45').first().waitFor({ timeout: 10000 }),
+        page.locator('text=내역이 없습니다').waitFor({ timeout: 10000 }),
+        page.waitForTimeout(5000),
+      ]).catch(() => {});
 
-    console.log('구매 내역 페이지 이동 완료');
-  } catch (error) {
+      console.log('구매 내역 페이지 이동 완료');
+    },
+    {
+      maxRetries: 3,
+      baseDelayMs: 2000,
+      maxDelayMs: 10000,
+    }
+  ).catch(async (error) => {
     await saveErrorScreenshot(page, 'purchase-history-nav-error');
     throw error;
-  }
+  });
 }
 
 /**
@@ -127,27 +141,35 @@ export async function parseTicketModal(modal: Locator): Promise<TicketDetails | 
  * @returns 티켓 상세 정보
  */
 export async function getTicketDetails(page: Page, barcodeElement: Locator): Promise<TicketDetails | null> {
-  try {
-    // 바코드 클릭하여 모달 열기
-    await barcodeElement.click();
+  return await withRetry(
+    async () => {
+      // 바코드 클릭하여 모달 열기
+      await barcodeElement.waitFor({ state: 'visible', timeout: 10000 });
+      await barcodeElement.click();
 
-    // 모달 로딩 대기
-    const modal = page.locator('#Lotto645TicketP');
-    await modal.waitFor({ state: 'visible', timeout: 10000 });
-    await page.waitForTimeout(1500);
+      // 모달 로딩 대기
+      const modal = page.locator('#Lotto645TicketP');
+      await modal.waitFor({ state: 'visible', timeout: 15000 });
+      await page.waitForTimeout(1500);
 
-    // 티켓 정보 파싱
-    const ticket = await parseTicketModal(modal);
+      // 티켓 정보 파싱
+      const ticket = await parseTicketModal(modal);
 
-    // 모달 닫기
-    await modal.locator('button').first().click().catch(() => {});
-    await page.waitForTimeout(300);
+      // 모달 닫기
+      await modal.locator('button').first().click().catch(() => {});
+      await page.waitForTimeout(300);
 
-    return ticket;
-  } catch (error) {
+      return ticket;
+    },
+    {
+      maxRetries: 2,
+      baseDelayMs: 1000,
+      maxDelayMs: 5000,
+    }
+  ).catch((error) => {
     console.error('티켓 상세 조회 오류:', error);
     return null;
-  }
+  });
 }
 
 /**

@@ -9,6 +9,7 @@ import type { Page, FrameLocator } from 'playwright';
 import type { PurchasedTicket, TicketSlot } from '../../domain/ticket.js';
 import { purchaseSelectors } from '../selectors.js';
 import { saveErrorScreenshot } from '../context.js';
+import { withRetry } from '../../utils/retry.js';
 
 /**
  * 로또 구매 준비 (구매 직전까지만 진행)
@@ -24,86 +25,107 @@ export async function purchaseLotto(
 ): Promise<PurchasedTicket[]> {
   let purchasePage: Page | null = null;
 
-  try {
-    // 로또6/45 버튼 클릭 (새 팝업 열림)
-    const popupPromise = page.waitForEvent('popup');
-    await page.getByRole(purchaseSelectors.lottoButton.role, {
-      name: purchaseSelectors.lottoButton.name,
-    }).click();
+  return await withRetry(
+    async () => {
+      try {
+        // 로또6/45 버튼 클릭 (새 팝업 열림)
+        const popupPromise = page.waitForEvent('popup');
+        await page.getByRole(purchaseSelectors.lottoButton.role, {
+          name: purchaseSelectors.lottoButton.name,
+        }).click();
 
-    // 새 팝업 페이지 대기
-    purchasePage = await popupPromise;
-    await purchasePage.waitForLoadState('networkidle');
+        // 새 팝업 페이지 대기
+        purchasePage = await popupPromise;
+        await purchasePage.waitForLoadState('networkidle');
 
-    // iframe 가져오기
-    const iframe = purchasePage.locator(`iframe[name="${purchaseSelectors.iframeName}"]`).contentFrame();
+        // iframe 가져오기
+        const iframe = purchasePage.locator(`iframe[name="${purchaseSelectors.iframeName}"]`).contentFrame();
 
-    // 자동번호발급 링크 클릭
-    await iframe.getByRole(purchaseSelectors.autoNumberLink.role, {
-      name: purchaseSelectors.autoNumberLink.name,
-    }).click();
+        // iframe 내부 콘텐츠가 로드될 때까지 대기
+        const autoNumberLink = iframe.getByRole(purchaseSelectors.autoNumberLink.role, {
+          name: purchaseSelectors.autoNumberLink.name,
+        });
+        await autoNumberLink.waitFor({ state: 'visible', timeout: 60000 });
 
-    // 확인 버튼 클릭 (슬롯 추가)
-    await iframe.getByRole(purchaseSelectors.confirmButton.role, {
-      name: purchaseSelectors.confirmButton.name,
-    }).click();
+        // 자동번호발급 링크 클릭
+        await autoNumberLink.click();
 
-    // === DRY RUN: 여기서 멈춤 ===
-    if (dryRun) {
-      console.log('🔸 DRY RUN 모드: 구매 버튼 클릭 전 멈춤');
-      console.log('🔸 실제 구매를 원하면 dryRun: false로 실행하세요');
+        // 확인 버튼이 보일 때까지 대기 후 클릭 (슬롯 추가)
+        const confirmBtn = iframe.getByRole(purchaseSelectors.confirmButton.role, {
+          name: purchaseSelectors.confirmButton.name,
+        });
+        await confirmBtn.waitFor({ state: 'visible', timeout: 30000 });
+        await confirmBtn.click();
 
-      // 스크린샷 저장 (확인용)
-      await saveErrorScreenshot(purchasePage, 'dry-run-before-buy');
+        // === DRY RUN: 여기서 멈춤 ===
+        if (dryRun) {
+          console.log('🔸 DRY RUN 모드: 구매 버튼 클릭 전 멈춤');
+          console.log('🔸 실제 구매를 원하면 dryRun: false로 실행하세요');
 
-      // 팝업 닫기
-      await purchasePage.close();
+          // 스크린샷 저장 (확인용)
+          await saveErrorScreenshot(purchasePage, 'dry-run-before-buy');
 
-      return [];
-    }
+          // 팝업 닫기
+          await purchasePage.close();
 
-    // === 실제 구매 진행 ===
-    // 구매하기 버튼 클릭
-    await iframe.getByRole(purchaseSelectors.buyButton.role, {
-      name: purchaseSelectors.buyButton.name,
-    }).click();
+          return [];
+        }
 
-    // 구매 확인 팝업에서 확인 클릭
-    await iframe.locator(purchaseSelectors.confirmPopup)
-      .getByRole(purchaseSelectors.confirmPopupButton.role, {
-        name: purchaseSelectors.confirmPopupButton.name,
-      }).click();
+        // === 실제 구매 진행 ===
+        // 구매하기 버튼 대기 후 클릭
+        const buyBtn = iframe.getByRole(purchaseSelectors.buyButton.role, {
+          name: purchaseSelectors.buyButton.name,
+        });
+        await buyBtn.waitFor({ state: 'visible', timeout: 30000 });
+        await buyBtn.click();
 
-    // 구매 완료 대기 (결과 팝업이 뜰 때까지)
-    await purchasePage.waitForTimeout(2000); // 구매 처리 시간 대기
+        // 구매 확인 팝업에서 확인 클릭
+        const confirmPopupBtn = iframe.locator(purchaseSelectors.confirmPopup)
+          .getByRole(purchaseSelectors.confirmPopupButton.role, {
+            name: purchaseSelectors.confirmPopupButton.name,
+          });
+        await confirmPopupBtn.waitFor({ state: 'visible', timeout: 30000 });
+        await confirmPopupBtn.click();
 
-    // 구매 결과 파싱 (구매 완료 화면에서)
-    const tickets = await parsePurchasedTickets(iframe);
+        // 구매 완료 대기 (결과 팝업이 뜰 때까지)
+        await purchasePage.waitForTimeout(2000); // 구매 처리 시간 대기
 
-    // 결과 출력
-    console.log(`로또 구매 완료: ${tickets.length}장`);
-    for (const ticket of tickets) {
-      if (ticket.numbers.length > 0) {
-        console.log(`  슬롯 ${ticket.slot}: ${ticket.numbers.join(', ')}`);
+        // 구매 결과 파싱 (구매 완료 화면에서)
+        const tickets = await parsePurchasedTickets(iframe);
+
+        // 결과 출력
+        console.log(`로또 구매 완료: ${tickets.length}장`);
+        for (const ticket of tickets) {
+          if (ticket.numbers.length > 0) {
+            console.log(`  슬롯 ${ticket.slot}: ${ticket.numbers.join(', ')}`);
+          }
+        }
+
+        // 닫기 버튼 클릭
+        const closeBtn = iframe.locator(purchaseSelectors.closeButton);
+        await closeBtn.waitFor({ state: 'visible', timeout: 10000 });
+        await closeBtn.click();
+
+        // 팝업 닫기
+        await purchasePage.close();
+
+        return tickets;
+      } catch (error) {
+        if (purchasePage) {
+          await saveErrorScreenshot(purchasePage, 'purchase-error');
+          await purchasePage.close();
+        } else {
+          await saveErrorScreenshot(page, 'purchase-error');
+        }
+        throw error;
       }
+    },
+    {
+      maxRetries: 3,
+      baseDelayMs: 2000,
+      maxDelayMs: 15000,
     }
-
-    // 닫기 버튼 클릭
-    await iframe.locator(purchaseSelectors.closeButton).click();
-
-    // 팝업 닫기
-    await purchasePage.close();
-
-    return tickets;
-  } catch (error) {
-    if (purchasePage) {
-      await saveErrorScreenshot(purchasePage, 'purchase-error');
-      await purchasePage.close();
-    } else {
-      await saveErrorScreenshot(page, 'purchase-error');
-    }
-    throw error;
-  }
+  );
 }
 
 /**
