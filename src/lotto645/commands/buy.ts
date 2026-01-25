@@ -7,11 +7,11 @@
  *   DRY_RUN=false npm run buy      # 실제 구매 진행
  */
 
-import { createBrowserSession, closeBrowserSession } from '../browser/context.js';
-import { login } from '../browser/actions/login.js';
+import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
+import { login } from '../../shared/browser/actions/login.js';
 import { purchaseLotto } from '../browser/actions/purchase.js';
 import { verifyRecentPurchase } from '../browser/actions/check-purchase.js';
-import { sendEmail, hasEmailConfig } from '../services/email.service.js';
+import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
 import {
   purchaseSuccessTemplate,
   purchaseFailureTemplate,

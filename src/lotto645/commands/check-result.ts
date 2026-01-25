@@ -10,13 +10,13 @@
  *   WINNING_ROUND: WINNING_NUMBERS 사용 시 회차 지정
  */
 
-import { createBrowserSession, closeBrowserSession } from '../browser/context.js';
-import { login } from '../browser/actions/login.js';
+import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
+import { login } from '../../shared/browser/actions/login.js';
 import { getTicketsByRound } from '../browser/actions/check-purchase.js';
 import { fetchLatestWinningNumbers } from '../browser/actions/fetch-winning.js';
 import type { WinningNumbers } from '../domain/winning.js';
 import { checkTicketsWinning, printWinningResult } from '../services/winning-check.service.js';
-import { sendEmail, hasEmailConfig } from '../services/email.service.js';
+import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
 import { winningResultTemplate } from '../services/email.templates.js';
 
 /**

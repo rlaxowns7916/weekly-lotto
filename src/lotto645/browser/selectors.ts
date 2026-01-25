@@ -1,23 +1,9 @@
 /**
- * CSS 셀렉터 및 Locator 중앙 관리
+ * 로또 6/45 CSS 셀렉터 중앙 관리
  *
  * Playwright codegen으로 생성된 코드 기반
  * 사이트 변경 시 이 파일만 업데이트하면 됩니다.
  */
-
-/**
- * 로그인 관련 셀렉터
- */
-export const loginSelectors = {
-  /** 로그인 페이지 URL (직접 접근) */
-  url: 'https://www.dhlottery.co.kr/login',
-
-  /** 아이디 입력 필드 (role 기반) */
-  usernameInput: { role: 'textbox' as const, name: '아이디' },
-
-  /** 비밀번호 입력 필드 (role 기반) */
-  passwordInput: { role: 'textbox' as const, name: '비밀번호' },
-} as const;;
 
 /**
  * 구매 관련 셀렉터

@@ -40,12 +40,9 @@ export async function createBrowserSession(
     slowMo: options.slowMo,
     args: [
       '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--disable-gpu',
     ],
   });
 

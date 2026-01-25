@@ -6,8 +6,8 @@
  *   HEADED=true npm run check        # 브라우저 표시
  */
 
-import { createBrowserSession, closeBrowserSession } from '../browser/context.js';
-import { login } from '../browser/actions/login.js';
+import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
+import { login } from '../../shared/browser/actions/login.js';
 import { getAllTicketsInWeek, printTicketsSummary } from '../browser/actions/check-purchase.js';
 
 async function main(): Promise<void> {

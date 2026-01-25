@@ -8,12 +8,12 @@ export default defineConfig({
   // 테스트 디렉토리
   testDir: './tests',
 
-  // 테스트 타임아웃 (30초)
-  timeout: 30000,
+  // 테스트 타임아웃 (2분) - 동행복권 사이트 응답 지연 고려
+  timeout: 120000,
 
-  // 각 테스트 간 기대 타임아웃
+  // expect 타임아웃 (30초) - 요소 대기 시간
   expect: {
-    timeout: 5000,
+    timeout: 30000,
   },
 
   // 실패 시 재시도

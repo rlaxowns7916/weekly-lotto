@@ -10,8 +10,8 @@
 import type { Page, Locator } from 'playwright';
 import type { PurchasedTicket } from '../../domain/ticket.js';
 import { parseSaleDate, isWithinMinutes } from '../../domain/ticket.js';
-import { saveErrorScreenshot } from '../context.js';
-import { withRetry } from '../../utils/retry.js';
+import { saveErrorScreenshot } from '../../../shared/browser/context.js';
+import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
  * 티켓 모달에서 파싱한 상세 정보

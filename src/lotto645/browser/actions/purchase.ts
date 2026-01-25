@@ -8,8 +8,8 @@
 import type { Page, FrameLocator } from 'playwright';
 import type { PurchasedTicket, TicketSlot } from '../../domain/ticket.js';
 import { purchaseSelectors } from '../selectors.js';
-import { saveErrorScreenshot } from '../context.js';
-import { withRetry } from '../../utils/retry.js';
+import { saveErrorScreenshot } from '../../../shared/browser/context.js';
+import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
  * 로또 구매 준비 (구매 직전까지만 진행)
@@ -40,6 +40,14 @@ export async function purchaseLotto(
         console.log(`팝업 열림 - URL: ${purchasePage.url()}`);
         await purchasePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
         console.log(`페이지 로드 완료 - URL: ${purchasePage.url()}`);
+
+        // 모바일 페이지로 리다이렉트된 경우 데스크톱 URL로 강제 이동
+        if (purchasePage.url().includes('m.dhlottery.co.kr')) {
+          console.log('모바일 리다이렉트 감지, 데스크톱 URL로 이동...');
+          await purchasePage.goto(purchaseSelectors.purchaseUrl, { timeout: 60000 });
+          await purchasePage.waitForLoadState('domcontentloaded', { timeout: 60000 });
+          console.log(`데스크톱 URL 이동 완료 - URL: ${purchasePage.url()}`);
+        }
 
         // iframe이 존재하는지 먼저 확인
         const iframeLocator = purchasePage.locator(`iframe[name="${purchaseSelectors.iframeName}"]`);

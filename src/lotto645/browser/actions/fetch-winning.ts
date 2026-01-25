@@ -6,8 +6,8 @@
 
 import type { Page } from 'playwright';
 import type { WinningNumbers } from '../../domain/winning.js';
-import { saveErrorScreenshot } from '../context.js';
-import { withRetry } from '../../utils/retry.js';
+import { saveErrorScreenshot } from '../../../shared/browser/context.js';
+import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
  * 동행복권 메인 페이지 URL
