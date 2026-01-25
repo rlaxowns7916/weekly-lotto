@@ -10,7 +10,6 @@ import type { PurchasedTicket } from '../domain/ticket.js';
 
 const READY_SOCKET_URL = 'https://ol.dhlottery.co.kr/olotto/game/egovUserReadySocket.json';
 const BUY_LOTTO_URL = 'https://ol.dhlottery.co.kr/olotto/game/execBuy.do';
-const MAIN_URL = 'https://www.dhlottery.co.kr/common.do?method=main';
 
 interface BuyResponse {
   result: {
@@ -31,11 +30,13 @@ async function getCookiesAsString(context: BrowserContext): Promise<string> {
     .join('; ');
 }
 
+const PURCHASE_PAGE_URL = 'https://ol.dhlottery.co.kr/olotto/game/game645.do';
+
 /**
- * 현재 회차 번호 조회 (브라우저 페이지에서 추출)
+ * 현재 판매 중인 회차 번호 조회 (구매 페이지에서 직접 추출)
+ * 구매 페이지에 표시된 "제XXXX회"가 판매 중인 회차
  */
 export async function getCurrentRound(context: BrowserContext): Promise<number> {
-  // 브라우저 페이지에서 직접 추출
   const pages = context.pages();
   const page = pages[0];
 
@@ -43,39 +44,29 @@ export async function getCurrentRound(context: BrowserContext): Promise<number> 
     throw new Error('브라우저 페이지가 없습니다');
   }
 
-  // 현재 페이지에서 회차 정보 추출
-  const round = await page.evaluate(() => {
-    // 다양한 패턴으로 회차 찾기
-    const patterns = [
-      /(\d+)\s*회/,
-      /제\s*(\d+)\s*회/,
-    ];
+  // 구매 페이지로 이동 (이미 구매 페이지면 스킵)
+  if (!page.url().includes('ol.dhlottery.co.kr')) {
+    await page.goto(PURCHASE_PAGE_URL, { timeout: 60000 });
+    await page.waitForLoadState('domcontentloaded');
+  }
 
+  // 구매 페이지에서 현재 판매 회차 추출 ("제1209회" 형식)
+  const currentRound = await page.evaluate((): number => {
+    // @ts-expect-error - document is available in browser context
     const text = document.body.innerText;
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match && parseInt(match[1], 10) > 1000) {
-        return parseInt(match[1], 10);
-      }
+    // "제XXXX회" 패턴이 판매 중인 회차 (첫 번째 매칭)
+    const match = text.match(/제\s*(\d{4})\s*회/);
+    if (match) {
+      return parseInt(match[1], 10);
     }
-
-    // 특정 요소에서 찾기
-    const roundEl = document.querySelector('.win_result h4, .num.win strong, #lottoDrwNo');
-    if (roundEl) {
-      const roundMatch = roundEl.textContent?.match(/(\d+)/);
-      if (roundMatch) {
-        return parseInt(roundMatch[1], 10);
-      }
-    }
-
     return 0;
   });
 
-  if (!round) {
+  if (!currentRound) {
     throw new Error('회차 번호를 찾을 수 없습니다');
   }
 
-  return round;
+  return currentRound;
 }
 
 /**
