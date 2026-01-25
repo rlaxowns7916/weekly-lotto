@@ -3,6 +3,11 @@
  *
  * ol.dhlottery.co.kr 직접 접근 방식 (iframe 없음)
  * 로그인 후 구매 페이지로 직접 이동하여 구매
+ *
+ * 중복 구매 방지를 위한 "선검증 후구매" 패턴:
+ * 1. 구매 시도 전에 먼저 최근 구매 여부 확인
+ * 2. 구매 실행 (retry 시에도 먼저 구매 여부 재확인)
+ * 3. 구매 후 최종 검증
  */
 
 import type { Page } from 'playwright';
@@ -10,10 +15,84 @@ import type { PurchasedTicket } from '../../domain/ticket.js';
 import { purchaseSelectors } from '../selectors.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
 import { withRetry } from '../../../shared/utils/retry.js';
-import { verifyRecentPurchase } from './check-purchase.js';
+import { verifyRecentPurchase, checkRecentPurchase } from './check-purchase.js';
 
 /**
- * 로또 구매
+ * 구매 액션만 수행 (검증 없이)
+ *
+ * 구매 페이지 이동 → 자동번호발급 → 확인 → 구매하기 → 확인 팝업
+ * retry 로직 없이 단일 실행만 수행
+ *
+ * @param page Playwright Page 인스턴스 (로그인된 상태)
+ * @throws {Error} 구매 실패 시
+ */
+async function executePurchase(page: Page): Promise<void> {
+  // 1. 구매 페이지로 직접 이동 (ol.dhlottery.co.kr)
+  console.log('구매 페이지로 이동 중...');
+  await page.goto(purchaseSelectors.purchaseUrl, { timeout: 60000 });
+  await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
+  console.log(`페이지 로드 완료 - URL: ${page.url()}`);
+
+  // 알림 팝업이 있으면 닫기 (예: 판매시간 안내 등)
+  await dismissAlertPopup(page);
+
+  // 2. 자동번호발급 링크 클릭
+  const autoNumberLink = page.getByRole(purchaseSelectors.autoNumberLink.role, {
+    name: purchaseSelectors.autoNumberLink.name,
+  });
+  await autoNumberLink.waitFor({ state: 'visible', timeout: 30000 });
+  console.log('자동번호발급 클릭...');
+  await autoNumberLink.click();
+
+  // 3. 확인 버튼 클릭 (슬롯 추가)
+  const confirmBtn = page.getByRole(purchaseSelectors.confirmButton.role, {
+    name: purchaseSelectors.confirmButton.name,
+  });
+  await confirmBtn.waitFor({ state: 'visible', timeout: 30000 });
+  console.log('확인 버튼 클릭...');
+  await confirmBtn.click();
+
+  // 4. 구매하기 버튼 클릭
+  const buyBtn = page.getByRole(purchaseSelectors.buyButton.role, {
+    name: purchaseSelectors.buyButton.name,
+  });
+  await buyBtn.waitFor({ state: 'visible', timeout: 30000 });
+  console.log('구매하기 버튼 클릭...');
+  await buyBtn.click();
+
+  // 5. 구매 확인 팝업에서 확인 클릭
+  const confirmPopupBtn = page
+    .locator(purchaseSelectors.confirmPopup)
+    .getByRole(purchaseSelectors.confirmPopupButton.role, {
+      name: purchaseSelectors.confirmPopupButton.name,
+    });
+  await confirmPopupBtn.waitFor({ state: 'visible', timeout: 30000 });
+  console.log('구매 확인 팝업 - 확인 클릭...');
+  await confirmPopupBtn.click();
+
+  // 6. 구매 완료 대기
+  await page
+    .locator('.selected_num_list, #closeLayer, .layer-alert')
+    .first()
+    .waitFor({ state: 'attached', timeout: 30000 });
+
+  // 7. 닫기 버튼 클릭 (있으면)
+  const closeBtn = page.locator(purchaseSelectors.closeButton);
+  const closeVisible = await closeBtn.isVisible().catch(() => false);
+  if (closeVisible) {
+    await closeBtn.click();
+  }
+
+  console.log('구매 요청 완료');
+}
+
+/**
+ * 로또 구매 (중복 구매 방지 패턴 적용)
+ *
+ * "선검증 후구매" 패턴:
+ * 1. 구매 시도 전에 먼저 최근 구매 여부 확인 → 있으면 스킵
+ * 2. 구매 실행 (retry 전에도 매번 구매 여부 재확인)
+ * 3. 구매 후 최종 검증
  *
  * @param page Playwright Page 인스턴스 (로그인된 상태)
  * @param dryRun true면 구매 버튼 클릭 전에 멈춤 (기본값: true)
@@ -24,6 +103,70 @@ export async function purchaseLotto(
   page: Page,
   dryRun: boolean = true
 ): Promise<PurchasedTicket[]> {
+  // === DRY RUN 모드 ===
+  if (dryRun) {
+    return await executeDryRun(page);
+  }
+
+  // === 실제 구매 진행 ===
+  try {
+    // 1. 먼저 최근 구매 확인 (이미 구매된 경우 스킵)
+    console.log('최근 구매 여부 확인 중...');
+    const existingTicket = await checkRecentPurchase(page, 5);
+    if (existingTicket) {
+      console.log('이미 최근 5분 내 구매된 티켓 발견, 구매 스킵');
+      console.log(`  회차: ${existingTicket.round}회`);
+      console.log(`  슬롯: ${existingTicket.slot} (${existingTicket.mode === 'auto' ? '자동' : '수동'})`);
+      console.log(`  번호: ${existingTicket.numbers.join(', ')}`);
+      return [existingTicket];
+    }
+    console.log('최근 구매 내역 없음, 구매 진행');
+
+    // 2. 구매 실행 (retry 포함, 각 retry 전에 구매 여부 재확인)
+    await withRetry(
+      async () => {
+        // retry 전에 다시 한번 확인 (이전 시도에서 구매됐을 수 있음)
+        const alreadyPurchased = await checkRecentPurchase(page, 2);
+        if (alreadyPurchased) {
+          console.log('이전 시도에서 구매됨, retry 종료');
+          return; // 구매됨, retry 종료
+        }
+
+        await executePurchase(page);
+      },
+      {
+        maxRetries: 3,
+        baseDelayMs: 2000,
+        maxDelayMs: 15000,
+      }
+    );
+
+    // 3. 최종 검증
+    console.log('구매 내역에서 검증 중...');
+    const verifiedTicket = await verifyRecentPurchase(page, 5);
+
+    if (!verifiedTicket) {
+      throw new Error('구매 검증 실패: 5분 이내 구매 내역을 찾을 수 없습니다');
+    }
+
+    console.log(`로또 구매 검증 완료!`);
+    console.log(`  회차: ${verifiedTicket.round}회`);
+    console.log(`  슬롯: ${verifiedTicket.slot} (${verifiedTicket.mode === 'auto' ? '자동' : '수동'})`);
+    console.log(`  번호: ${verifiedTicket.numbers.join(', ')}`);
+
+    return [verifiedTicket];
+  } catch (error) {
+    await saveErrorScreenshot(page, 'purchase-error');
+    throw error;
+  }
+}
+
+/**
+ * DRY RUN 모드 실행
+ *
+ * 구매 버튼 클릭 전까지만 진행하고 멈춤
+ */
+async function executeDryRun(page: Page): Promise<PurchasedTicket[]> {
   return await withRetry(
     async () => {
       try {
@@ -52,63 +195,12 @@ export async function purchaseLotto(
         console.log('확인 버튼 클릭...');
         await confirmBtn.click();
 
-        // === DRY RUN: 여기서 멈춤 ===
-        if (dryRun) {
-          console.log('🔸 DRY RUN 모드: 구매 버튼 클릭 전 멈춤');
-          console.log('🔸 실제 구매를 원하면 dryRun: false로 실행하세요');
-          await saveErrorScreenshot(page, 'dry-run-before-buy');
-          return [];
-        }
-
-        // === 실제 구매 진행 ===
-        // 4. 구매하기 버튼 클릭
-        const buyBtn = page.getByRole(purchaseSelectors.buyButton.role, {
-          name: purchaseSelectors.buyButton.name,
-        });
-        await buyBtn.waitFor({ state: 'visible', timeout: 30000 });
-        console.log('구매하기 버튼 클릭...');
-        await buyBtn.click();
-
-        // 5. 구매 확인 팝업에서 확인 클릭
-        const confirmPopupBtn = page
-          .locator(purchaseSelectors.confirmPopup)
-          .getByRole(purchaseSelectors.confirmPopupButton.role, {
-            name: purchaseSelectors.confirmPopupButton.name,
-          });
-        await confirmPopupBtn.waitFor({ state: 'visible', timeout: 30000 });
-        console.log('구매 확인 팝업 - 확인 클릭...');
-        await confirmPopupBtn.click();
-
-        // 6. 구매 완료 대기
-        await page
-          .locator('.selected_num_list, #closeLayer, .layer-alert')
-          .first()
-          .waitFor({ state: 'attached', timeout: 30000 });
-
-        // 7. 닫기 버튼 클릭 (있으면)
-        const closeBtn = page.locator(purchaseSelectors.closeButton);
-        const closeVisible = await closeBtn.isVisible().catch(() => false);
-        if (closeVisible) {
-          await closeBtn.click();
-        }
-
-        console.log('구매 요청 완료, 구매 내역에서 검증 중...');
-
-        // 8. 구매 내역 페이지에서 5분 이내 구매 검증
-        const verifiedTicket = await verifyRecentPurchase(page, 5);
-
-        if (!verifiedTicket) {
-          throw new Error('구매 검증 실패: 5분 이내 구매 내역을 찾을 수 없습니다');
-        }
-
-        console.log(`로또 구매 검증 완료!`);
-        console.log(`  회차: ${verifiedTicket.round}회`);
-        console.log(`  슬롯: ${verifiedTicket.slot} (${verifiedTicket.mode === 'auto' ? '자동' : '수동'})`);
-        console.log(`  번호: ${verifiedTicket.numbers.join(', ')}`);
-
-        return [verifiedTicket];
+        console.log('🔸 DRY RUN 모드: 구매 버튼 클릭 전 멈춤');
+        console.log('🔸 실제 구매를 원하면 dryRun: false로 실행하세요');
+        await saveErrorScreenshot(page, 'dry-run-before-buy');
+        return [];
       } catch (error) {
-        await saveErrorScreenshot(page, 'purchase-error');
+        await saveErrorScreenshot(page, 'dry-run-error');
         throw error;
       }
     },
@@ -144,17 +236,5 @@ async function dismissAlertPopup(page: Page): Promise<void> {
     }
   } catch (error) {
     console.log('알림 팝업 처리 중 오류 (무시):', error);
-  }
-}
-
-/**
- * 잔액 부족 여부 확인
- */
-export async function checkInsufficientBalance(page: Page): Promise<boolean> {
-  try {
-    const errorText = await page.locator('.err_info, .alert_msg').textContent();
-    return errorText?.includes('예치금') || errorText?.includes('잔액') || false;
-  } catch {
-    return false;
   }
 }
