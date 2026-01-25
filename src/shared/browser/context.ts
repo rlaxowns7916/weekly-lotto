@@ -69,27 +69,34 @@ export async function createBrowserSession(
     },
   });
 
-  const page = await context.newPage();
+  // context 레벨에서 navigator 속성 우회 (페이지 생성 전에 설정)
+  // 사이트의 봇 탐지 스크립트보다 먼저 실행되어야 함
+  await context.addInitScript(`
+    // Navigator.prototype에서 platform getter 재정의
+    // 사이트 체크: /win16|win32|win64|mac/ig.test(navigator.platform)
+    delete Navigator.prototype.platform;
+    Navigator.prototype.__defineGetter__('platform', function() {
+      return 'Win32';
+    });
 
-  // navigator 속성 우회 (headless/봇 탐지 우회)
-  await page.addInitScript(() => {
     // webdriver 숨기기
-    Object.defineProperty(navigator, 'webdriver', {
-      get: () => undefined,
+    delete Navigator.prototype.webdriver;
+    Navigator.prototype.__defineGetter__('webdriver', function() {
+      return undefined;
     });
-    // platform을 Windows로 위장 (Linux 감지 우회)
-    Object.defineProperty(navigator, 'platform', {
-      get: () => 'Win32',
-    });
+
     // plugins 배열 채우기
-    Object.defineProperty(navigator, 'plugins', {
-      get: () => [1, 2, 3, 4, 5],
+    Navigator.prototype.__defineGetter__('plugins', function() {
+      return [1, 2, 3, 4, 5];
     });
+
     // languages 설정
-    Object.defineProperty(navigator, 'languages', {
-      get: () => ['ko-KR', 'ko', 'en-US', 'en'],
+    Navigator.prototype.__defineGetter__('languages', function() {
+      return ['ko-KR', 'ko', 'en-US', 'en'];
     });
-  });
+  `);
+
+  const page = await context.newPage();
 
   return { browser, context, page };
 }
