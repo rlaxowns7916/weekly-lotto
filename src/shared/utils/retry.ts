@@ -38,7 +38,7 @@ function calculateDelay(
 /**
  * 재시도 가능한 에러인지 판별 (네트워크 에러 등)
  */
-export function isRetryableError(error: unknown): boolean {
+function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
     return (
@@ -112,6 +112,6 @@ export async function withRetry<T>(
 /**
  * 지정된 시간만큼 대기
  */
-export function sleep(ms: number): Promise<void> {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

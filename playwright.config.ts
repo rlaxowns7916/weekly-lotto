@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config } from 'dotenv';
+
+// .env 파일 로드
+config();
 
 /**
  * Playwright 설정
