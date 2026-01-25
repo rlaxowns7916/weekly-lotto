@@ -23,7 +23,7 @@ export async function login(page: Page): Promise<void> {
     async () => {
       // 로그인 페이지로 직접 이동
       await page.goto(loginSelectors.url, { timeout: 60000 });
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // 아이디 입력
       const usernameInput = page.getByRole(loginSelectors.usernameInput.role, {
@@ -59,7 +59,9 @@ export async function login(page: Page): Promise<void> {
         console.log('로그인 성공');
         // 메인 페이지로 이동 (구매 버튼이 있는 페이지)
         await page.goto('https://www.dhlottery.co.kr/main', { timeout: 60000 });
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
+        // 페이지 로딩 완료 확인 - 로그인 상태 유지 확인
+        await page.getByRole('button', { name: '로그아웃' }).waitFor({ state: 'visible', timeout: 30000 });
         return;
       }
 
@@ -74,7 +76,9 @@ export async function login(page: Page): Promise<void> {
         console.log('로그인 성공 (URL 확인)');
         // 메인 페이지로 이동
         await page.goto('https://www.dhlottery.co.kr/main', { timeout: 60000 });
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
+        // 페이지 로딩 완료 확인 - 로그인 상태 유지 확인
+        await page.getByRole('button', { name: '로그아웃' }).waitFor({ state: 'visible', timeout: 30000 });
         return;
       }
 
