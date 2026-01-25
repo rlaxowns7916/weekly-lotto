@@ -58,7 +58,7 @@ export async function login(page: Page): Promise<void> {
       if (result === 'success') {
         console.log('로그인 성공');
         // 메인 페이지로 이동 (구매 버튼이 있는 페이지)
-        await page.goto('https://www.dhlottery.co.kr/common.do?method=main', { timeout: 60000 });
+        await page.goto('https://www.dhlottery.co.kr/main', { timeout: 60000 });
         await page.waitForLoadState('networkidle');
         return;
       }
@@ -73,7 +73,7 @@ export async function login(page: Page): Promise<void> {
       if (!currentUrl.includes('login') && !currentUrl.includes('Login')) {
         console.log('로그인 성공 (URL 확인)');
         // 메인 페이지로 이동
-        await page.goto('https://www.dhlottery.co.kr/common.do?method=main', { timeout: 60000 });
+        await page.goto('https://www.dhlottery.co.kr/main', { timeout: 60000 });
         await page.waitForLoadState('networkidle');
         return;
       }
