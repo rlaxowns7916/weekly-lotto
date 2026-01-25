@@ -52,9 +52,9 @@ async function executePurchase(page: Page): Promise<void> {
   console.log('확인 버튼 클릭...');
   await confirmBtn.click();
 
-  // A슬롯에 번호가 추가될 때까지 대기 (구매하기 버튼 활성화 조건)
-  await page.locator('.slot_num .num').first().waitFor({ state: 'visible', timeout: 10000 });
-  console.log('A슬롯 번호 추가됨');
+  // 확인 버튼이 사라질 때까지 대기 (번호가 슬롯에 추가되면 버튼 사라짐)
+  await confirmBtn.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+  console.log('번호 선택 완료');
 
   // 4. 구매하기 버튼 클릭 → 구매 확인 팝업 표시
   const buyBtn = page.getByRole(purchaseSelectors.buyButton.role, {
