@@ -177,11 +177,13 @@ export async function getTicketDetails(page: Page, barcodeElement: Locator): Pro
  */
 export async function getRecentPurchasedNumbers(page: Page): Promise<PurchasedTicket | null> {
   try {
-    const barcodeElement = page.locator('span.whl-txt.barcd').first();
+    // 로또6/45 행만 필터링
+    const lottoRow = page.locator('tr:has-text("로또6/45")').first();
+    const barcodeElement = lottoRow.locator('span.whl-txt.barcd');
     const isVisible = await barcodeElement.isVisible().catch(() => false);
 
     if (!isVisible) {
-      console.warn('구매 내역이 없습니다');
+      console.warn('로또6/45 구매 내역이 없습니다');
       return null;
     }
 
@@ -257,15 +259,17 @@ export async function getTicketsByRound(
   await navigateToPurchaseHistory(page);
 
   const tickets: PurchasedTicket[] = [];
-  const barcodeElements = page.locator('span.whl-txt.barcd');
-  const totalCount = await barcodeElements.count();
+  
+  // 로또6/45 행만 필터링
+  const lottoRows = page.locator('tr:has-text("로또6/45")');
+  const totalCount = await lottoRows.count();
 
   if (totalCount === 0) {
-    console.warn('구매 내역이 없습니다');
+    console.warn('로또6/45 구매 내역이 없습니다');
     return tickets;
   }
 
-  console.log(`총 ${totalCount}개의 구매 내역 발견`);
+  console.log(`로또6/45 구매 내역 ${totalCount}개 발견`);
 
   // 회차 결정: targetRound가 없으면 첫 번째 티켓에서 추출
   let round = targetRound;
@@ -275,7 +279,8 @@ export async function getTicketsByRound(
     if (tickets.length >= maxCount) break;
 
     try {
-      const barcodeElement = barcodeElements.nth(i);
+      const row = lottoRows.nth(i);
+      const barcodeElement = row.locator('span.whl-txt.barcd');
       const isVisible = await barcodeElement.isVisible().catch(() => false);
 
       if (!isVisible) continue;
@@ -332,19 +337,22 @@ export async function getAllTicketsInWeek(
   await navigateToPurchaseHistory(page);
 
   const tickets: PurchasedTicket[] = [];
-  const barcodeElements = page.locator('span.whl-txt.barcd');
-  const totalCount = await barcodeElements.count();
+  
+  // 로또6/45 행만 필터링 (테이블에서 '로또6/45' 텍스트가 포함된 행의 바코드)
+  const lottoRows = page.locator('tr:has-text("로또6/45")');
+  const rowCount = await lottoRows.count();
 
-  if (totalCount === 0) {
-    console.warn('구매 내역이 없습니다');
+  if (rowCount === 0) {
+    console.warn('로또6/45 구매 내역이 없습니다');
     return tickets;
   }
 
-  console.log(`총 ${totalCount}개의 구매 내역 발견 (최대 ${maxCount}개 조회)`);
+  console.log(`로또6/45 구매 내역 ${rowCount}개 발견 (최대 ${maxCount}개 조회)`);
 
-  for (let i = 0; i < Math.min(totalCount, maxCount); i++) {
+  for (let i = 0; i < Math.min(rowCount, maxCount); i++) {
     try {
-      const barcodeElement = barcodeElements.nth(i);
+      const row = lottoRows.nth(i);
+      const barcodeElement = row.locator('span.whl-txt.barcd');
       const isVisible = await barcodeElement.isVisible().catch(() => false);
 
       if (!isVisible) continue;
@@ -355,14 +363,14 @@ export async function getAllTicketsInWeek(
 
       tickets.push(ticket);
       console.log(
-        `[${tickets.length}/${Math.min(totalCount, maxCount)}] ${ticket.round}회 ${ticket.slot} (${ticket.mode}): ${ticket.numbers.join(', ')}`
+        `[${tickets.length}/${Math.min(rowCount, maxCount)}] ${ticket.round}회 ${ticket.slot} (${ticket.mode}): ${ticket.numbers.join(', ')}`
       );
     } catch (error) {
       console.error(`티켓 ${i + 1} 조회 오류:`, error);
     }
   }
 
-  console.log(`총 ${tickets.length}개 티켓 조회 완료`);
+  console.log(`총 ${tickets.length}개 로또6/45 티켓 조회 완료`);
   return tickets;
 }
 
