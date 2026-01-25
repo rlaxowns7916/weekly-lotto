@@ -61,40 +61,6 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
 }
 
 /**
- * 특정 회차 당첨 번호 조회
- *
- * @param page Playwright Page
- * @param targetRound 회차 번호
- * @returns 당첨 번호 정보 (실패 시 null)
- */
-export async function fetchWinningNumbersByRound(
-  page: Page,
-  targetRound: number
-): Promise<WinningNumbers | null> {
-  return await withRetry(
-    async () => {
-      // 메인 페이지로 이동
-      await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
-
-      // 해당 회차 슬라이드 찾기 (data-ltepsd 속성으로)
-      const targetSlide = page.locator(`.swiper.lt645 .swiper-slide.lt645-inbox[data-ltepsd="${targetRound}"]`);
-      await targetSlide.waitFor({ state: 'visible', timeout: 30000 });
-
-      return await parseWinningSlide(targetSlide);
-    },
-    {
-      maxRetries: 3,
-      baseDelayMs: 2000,
-      maxDelayMs: 10000,
-    }
-  ).catch(async (error) => {
-    await saveErrorScreenshot(page, 'fetch-winning-by-round-error');
-    console.error(`${targetRound}회 당첨 번호 조회 오류:`, error);
-    return null;
-  });
-}
-
-/**
  * 슬라이드에서 당첨 번호 파싱
  */
 async function parseWinningSlide(slide: ReturnType<Page['locator']>): Promise<WinningNumbers | null> {
@@ -169,15 +135,4 @@ function parseDrawDate(dateStr: string): Date {
 
   const [, year, month, day] = match;
   return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-}
-
-/**
- * 회차가 일치하는지 확인
- *
- * @param winningRound 당첨 번호 회차
- * @param ticketRound 티켓 회차
- * @returns 일치 여부
- */
-export function isRoundMatch(winningRound: number, ticketRound: number): boolean {
-  return winningRound === ticketRound;
 }

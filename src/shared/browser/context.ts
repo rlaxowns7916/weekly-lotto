@@ -128,18 +128,3 @@ export async function saveErrorScreenshot(
   }
 }
 
-/**
- * 에러 핸들링과 함께 액션 실행
- */
-export async function withErrorScreenshot<T>(
-  page: Page,
-  actionName: string,
-  action: () => Promise<T>
-): Promise<T> {
-  try {
-    return await action();
-  } catch (error) {
-    await saveErrorScreenshot(page, actionName);
-    throw error;
-  }
-}

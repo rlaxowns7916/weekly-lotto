@@ -1,7 +1,10 @@
 ---
 name: planner
 description: 계획 수립 전문가. 기능 구현, 아키텍처 변경, 복잡한 리팩토링 요청 시 자동 활성화. 포괄적이고 실행 가능한 구현 계획 생성.
-tools: Read, Grep, Glob
+tools:
+  - Read
+  - Grep
+  - Glob
 model: opus
 ---
 
