@@ -36,7 +36,7 @@ async function executePurchase(page: Page): Promise<void> {
   // 알림 팝업이 있으면 닫기 (예: 판매시간 안내 등)
   await dismissAlertPopup(page);
 
-  // 2. 자동번호발급 링크 클릭
+  // 2. 자동번호발급 링크 클릭 → 번호 생성 팝업 대기
   const autoNumberLink = page.getByRole(purchaseSelectors.autoNumberLink.role, {
     name: purchaseSelectors.autoNumberLink.name,
   });
@@ -44,7 +44,7 @@ async function executePurchase(page: Page): Promise<void> {
   console.log('자동번호발급 클릭...');
   await autoNumberLink.click();
 
-  // 3. 확인 버튼 클릭 (슬롯 추가)
+  // 3. 확인 버튼 클릭 (번호 생성 완료 후 나타남) → A슬롯에 번호 추가됨
   const confirmBtn = page.getByRole(purchaseSelectors.confirmButton.role, {
     name: purchaseSelectors.confirmButton.name,
   });
@@ -52,7 +52,11 @@ async function executePurchase(page: Page): Promise<void> {
   console.log('확인 버튼 클릭...');
   await confirmBtn.click();
 
-  // 4. 구매하기 버튼 클릭
+  // A슬롯에 번호가 추가될 때까지 대기 (구매하기 버튼 활성화 조건)
+  await page.locator('.slot_num .num').first().waitFor({ state: 'visible', timeout: 10000 });
+  console.log('A슬롯 번호 추가됨');
+
+  // 4. 구매하기 버튼 클릭 → 구매 확인 팝업 표시
   const buyBtn = page.getByRole(purchaseSelectors.buyButton.role, {
     name: purchaseSelectors.buyButton.name,
   });
@@ -61,28 +65,32 @@ async function executePurchase(page: Page): Promise<void> {
   await buyBtn.click();
 
   // 5. 구매 확인 팝업에서 확인 클릭 + 구매 API 응답 대기
-  const confirmPopupBtn = page
-    .locator(purchaseSelectors.confirmPopup)
-    .getByRole(purchaseSelectors.confirmPopupButton.role, {
-      name: purchaseSelectors.confirmPopupButton.name,
-    });
-  await confirmPopupBtn.waitFor({ state: 'visible', timeout: 30000 });
-  console.log('구매 확인 팝업 - 확인 클릭...');
+  const confirmPopup = page.locator(purchaseSelectors.confirmPopup);
+  await confirmPopup.waitFor({ state: 'visible', timeout: 30000 });
+
+  const confirmPopupBtn = confirmPopup.getByRole(purchaseSelectors.confirmPopupButton.role, {
+    name: purchaseSelectors.confirmPopupButton.name,
+  });
+  await confirmPopupBtn.waitFor({ state: 'visible', timeout: 10000 });
+  console.log('구매 확인 팝업 표시됨');
 
   // 구매 직전 스크린샷 (디버깅용)
   await saveErrorScreenshot(page, 'before-purchase-confirm');
 
-  // 구매 API 응답을 기다리면서 확인 버튼 클릭
-  const [purchaseResponse] = await Promise.all([
-    page.waitForResponse(
-      (resp) => resp.url().includes('gameBuy.do') && resp.status() === 200,
-      { timeout: 30000 }
-    ).catch((e) => {
-      console.error('구매 API 응답 대기 실패:', e.message);
-      return null;
-    }),
-    confirmPopupBtn.click(),
-  ]);
+  // 구매 API 응답 리스너 등록 후 클릭
+  const responsePromise = page.waitForResponse(
+    (resp) => resp.url().includes('gameBuy.do'),
+    { timeout: 30000 }
+  );
+
+  console.log('구매 확인 버튼 클릭...');
+  await confirmPopupBtn.click();
+
+  // 구매 API 응답 대기
+  const purchaseResponse = await responsePromise.catch((e) => {
+    console.error('구매 API 응답 대기 실패:', e.message);
+    return null;
+  });
 
   if (purchaseResponse) {
     const responseText = await purchaseResponse.text().catch(() => '');
@@ -168,16 +176,11 @@ export async function purchaseLotto(
     }
     console.log('최근 구매 내역 없음, 구매 진행');
 
-    // 2. 구매 실행 (retry 포함, 각 retry 전에 구매 여부 재확인)
+    // 2. 구매 실행 (retry 포함)
+    // 참고: 구매 성공 후 검증 실패로 retry 시 중복 구매 가능성 있음
+    // → executePurchase 내부에서 구매 API 응답으로 성공 여부 확인
     await withRetry(
       async () => {
-        // retry 전에 다시 한번 확인 (이전 시도에서 구매됐을 수 있음)
-        const alreadyPurchased = await checkRecentPurchase(page, 2);
-        if (alreadyPurchased) {
-          console.log('이전 시도에서 구매됨, retry 종료');
-          return; // 구매됨, retry 종료
-        }
-
         await executePurchase(page);
       },
       {
