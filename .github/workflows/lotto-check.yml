@@ -1,39 +1,16 @@
-name: CI
+name: 로또645 당첨 확인
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  schedule:
+    # 매주 토요일 13:00 UTC (22:00 KST) - 추첨 후
+    - cron: '0 13 * * 6'
+
+  # 수동 실행 가능
+  workflow_dispatch:
 
 jobs:
-  lint-and-typecheck:
-    name: Lint & Type Check
+  check:
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Run TypeScript type check
-        run: npm run typecheck
-
-  e2e-test:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: lint-and-typecheck
 
     steps:
       - name: Checkout code
@@ -73,26 +50,13 @@ jobs:
           LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
 
-      - name: Run Playwright tests
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npx playwright test
-        env:
-          CI: true
-          HEADED: 'true'
+      - name: 로또645 당첨 확인 실행
+        run: npm run lotto:check-result
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Upload test artifacts
+      - name: Upload screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: test-results/
-          retention-days: 7
-          if-no-files-found: ignore
+          name: error-screenshots
+          path: screenshots/
+          retention-days: 1

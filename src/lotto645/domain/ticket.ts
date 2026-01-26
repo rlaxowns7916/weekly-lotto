@@ -2,6 +2,9 @@
  * 로또 티켓 도메인 타입
  */
 
+// 날짜 유틸리티 re-export (하위 호환성 유지)
+export { parseSaleDate, isWithinMinutes } from '../../shared/utils/date.js';
+
 /** 티켓 구매 모드 */
 export type Lotto645Mode = 'auto' | 'semi-auto' | 'manual';
 
@@ -41,29 +44,5 @@ export interface PurchasedTicket {
     rank: number; // 0: 미당첨, 1~5: 등수
     amount: number; // 당첨금
   };
-}
-
-/**
- * 발행일이 지정된 시간(분) 이내인지 확인
- */
-export function isWithinMinutes(saleDate: string, minutes: number): boolean {
-  const saleTime = new Date(saleDate).getTime();
-  const now = Date.now();
-  const diffMinutes = (now - saleTime) / (1000 * 60);
-  return diffMinutes <= minutes;
-}
-
-/**
- * 발행일 문자열 파싱 (예: "2026/01/24 (토) 18:20:39")
- *
- * 동행복권 사이트의 시간은 KST(UTC+9)이므로 타임존 정보 포함
- */
-export function parseSaleDate(saleDateStr: string): string | null {
-  // "2026/01/24 (토) 18:20:39" -> "2026-01-24T18:20:39+09:00"
-  const match = saleDateStr.match(/(\d{4})\/(\d{2})\/(\d{2}).*?(\d{2}):(\d{2}):(\d{2})/);
-  if (!match) return null;
-
-  const [, year, month, day, hour, min, sec] = match;
-  return `${year}-${month}-${day}T${hour}:${min}:${sec}+09:00`;
 }
 

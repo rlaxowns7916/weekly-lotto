@@ -9,84 +9,20 @@ import type { PurchasedPensionTicket, PensionGroup } from '../../domain/ticket.j
 import { isValidGroup, formatPensionNumber } from '../../domain/ticket.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
 import { withRetry } from '../../../shared/utils/retry.js';
+import { parseSaleDate, isWithinMinutes } from '../../../shared/utils/date.js';
+import {
+  navigateToPurchaseHistory as navigateToHistory,
+  LOTTERY_PRODUCTS,
+} from '../../../shared/browser/actions/purchase-history.js';
 
-/** 연금복권720+ 복권 상품 코드 */
-const PRODUCT_CODE = 'LP72';
-
-/** 티켓 모달 ID */
-const MODAL_ID = '#Pt720TicketP';
-
-/**
- * 발행일 문자열 파싱 (예: "2026/01/24 (토) 18:20:39")
- */
-function parseSaleDate(saleDateStr: string): string | null {
-  const match = saleDateStr.match(/(\d{4})\/(\d{2})\/(\d{2}).*?(\d{2}):(\d{2}):(\d{2})/);
-  if (!match) return null;
-  const [, year, month, day, hour, min, sec] = match;
-  return `${year}-${month}-${day}T${hour}:${min}:${sec}+09:00`;
-}
+/** 연금복권720+ 상품 정보 */
+const PRODUCT = LOTTERY_PRODUCTS.LP72;
 
 /**
- * 발행일이 지정된 시간(분) 이내인지 확인
- */
-function isWithinMinutes(saleDate: string, minutes: number): boolean {
-  const saleTime = new Date(saleDate).getTime();
-  const now = Date.now();
-  const diffMinutes = (now - saleTime) / (1000 * 60);
-  return diffMinutes <= minutes;
-}
-
-/**
- * 구매 내역 페이지로 이동 (연금복권720+ 필터)
+ * 구매 내역 페이지로 이동 (연금복권720+)
  */
 async function navigateToPurchaseHistory(page: Page): Promise<void> {
-  await withRetry(
-    async () => {
-      await page.goto('https://www.dhlottery.co.kr/mypage/mylotteryledger', { timeout: 60000 });
-      await page.waitForLoadState('networkidle');
-
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(500);
-
-      const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
-      if (await detailBtn.isVisible().catch(() => false)) {
-        await detailBtn.scrollIntoViewIfNeeded();
-        await detailBtn.click({ force: true });
-        await page.waitForTimeout(300);
-      }
-
-      const weekBtn = page.getByRole('button', { name: '최근 1주일' });
-      await weekBtn.waitFor({ state: 'visible', timeout: 10000 });
-      await weekBtn.scrollIntoViewIfNeeded();
-      await weekBtn.click({ force: true });
-
-      // 연금복권720+ 선택
-      const selectBox = page.locator('#ltGdsSelect');
-      await selectBox.waitFor({ state: 'attached', timeout: 10000 });
-      await selectBox.selectOption(PRODUCT_CODE);
-
-      const searchBtn = page.getByRole('button', { name: '검색', exact: true });
-      await searchBtn.waitFor({ state: 'visible', timeout: 10000 });
-
-      await Promise.all([
-        page.waitForResponse(
-          (resp) => resp.url().includes('selectMyLotteryledger.do') && resp.status() === 200,
-          { timeout: 30000 }
-        ),
-        searchBtn.click(),
-      ]);
-
-      console.log('연금복권720+ 구매 내역 페이지 이동 완료');
-    },
-    {
-      maxRetries: 3,
-      baseDelayMs: 2000,
-      maxDelayMs: 10000,
-    }
-  ).catch(async (error) => {
-    await saveErrorScreenshot(page, 'pension720-history-nav-error');
-    throw error;
-  });
+  await navigateToHistory(page, PRODUCT.code, 'pension720-history');
 }
 
 /**
@@ -105,13 +41,28 @@ async function parseTicketModal(modal: Locator): Promise<PurchasedPensionTicket 
   try {
     const modalText = await modal.textContent();
 
+    // 디버그: 모달 텍스트 출력
+    if (!modalText || modalText.trim().length < 10) {
+      console.warn('모달 텍스트가 비어있거나 너무 짧음:', modalText?.slice(0, 100));
+    }
+
     // 회차 추출
     const roundMatch = modalText?.match(/(\d+)\s*회/);
     const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
 
+    // 회차 파싱 실패 시 디버그 로그
+    if (round === 0) {
+      console.warn('회차 파싱 실패. 모달 텍스트 샘플:', modalText?.slice(0, 200));
+    }
+
     // 발행일 추출
     const saleDateMatch = modalText?.match(/발행일\s*([\d/]+\s*\([^)]+\)\s*[\d:]+)/);
     const saleDate = saleDateMatch ? parseSaleDate(saleDateMatch[1]) : undefined;
+
+    // 발행일 파싱 실패 시 디버그 로그
+    if (!saleDate) {
+      console.warn('발행일 파싱 실패. 발행일 매치:', saleDateMatch?.[1]);
+    }
 
     // 추첨일 추출
     const drawDateMatch = modalText?.match(/추첨일\s*([\d/]+)/);
@@ -187,9 +138,14 @@ async function getTicketDetails(page: Page, barcodeElement: Locator): Promise<Pu
       await barcodeElement.waitFor({ state: 'visible', timeout: 10000 });
       await barcodeElement.click();
 
-      const modal = page.locator(MODAL_ID);
+      const modal = page.locator(PRODUCT.modalId);
       await modal.waitFor({ state: 'visible', timeout: 15000 });
-      await modal.locator('.ticket-num-line').first().waitFor({ state: 'attached', timeout: 10000 });
+
+      // 실제 데이터 로딩 대기: 회차 정보 + 번호 6자리
+      await Promise.all([
+        modal.locator('text=/\\d+회/').first().waitFor({ state: 'visible', timeout: 10000 }),
+        modal.locator('.ticket-num-in').nth(5).waitFor({ state: 'visible', timeout: 10000 }),
+      ]);
 
       const ticket = await parseTicketModal(modal);
 
@@ -200,9 +156,9 @@ async function getTicketDetails(page: Page, barcodeElement: Locator): Promise<Pu
       return ticket;
     },
     {
-      maxRetries: 2,
-      baseDelayMs: 1000,
-      maxDelayMs: 5000,
+      maxRetries: 3,
+      baseDelayMs: 500,
+      maxDelayMs: 3000,
     }
   ).catch((error) => {
     console.error('티켓 상세 조회 오류:', error);

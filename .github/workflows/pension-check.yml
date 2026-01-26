@@ -1,9 +1,9 @@
-name: 당첨 확인
+name: 연금복권720 당첨 확인
 
 on:
   schedule:
-    # 매주 토요일 13:00 UTC (22:00 KST) - 추첨 후
-    - cron: '0 13 * * 6'
+    # 매주 목요일 12:00 UTC (21:00 KST) - 추첨 후
+    - cron: '0 12 * * 4'
 
   # 수동 실행 가능
   workflow_dispatch:
@@ -50,8 +50,8 @@ jobs:
           LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
           LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
 
-      - name: 당첨 확인 실행
-        run: npm run check-result
+      - name: 연금복권720 당첨 확인 실행
+        run: npm run pension:check-result
 
       - name: Upload screenshots on failure
         if: failure()
