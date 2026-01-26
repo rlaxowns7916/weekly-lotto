@@ -14,6 +14,11 @@
 import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
 import { login } from '../../shared/browser/actions/login.js';
 import { purchasePension } from '../browser/actions/purchase.js';
+import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
+import {
+  purchaseSuccessTemplate,
+  purchaseFailureTemplate,
+} from '../services/email.templates.js';
 import type { PensionGroup } from '../domain/ticket.js';
 import { isValidGroup } from '../domain/ticket.js';
 
@@ -68,13 +73,33 @@ async function main(): Promise<void> {
         console.log(`   조: ${ticket.pensionNumber.group}조`);
         console.log(`   번호: ${ticket.pensionNumber.number}`);
         console.log(`   모드: ${ticket.mode === 'auto' ? '자동' : '수동'}`);
-      }
 
-      // TODO: 이메일 알림 추가
+        // 이메일 알림 전송
+        if (hasEmailConfig()) {
+          console.log('\n3. 이메일 알림 전송 중...');
+          const emailTemplate = purchaseSuccessTemplate(ticket);
+          const result = await sendEmail(emailTemplate);
+          if (result.success) {
+            console.log('   ✅ 이메일 전송 완료');
+          } else {
+            console.log(`   ⚠️ 이메일 전송 실패: ${result.error}`);
+          }
+        }
+      }
     }
 
   } catch (error) {
     console.error('\n❌ 실패:', error);
+
+    // 실패 알림 이메일 전송
+    if (hasEmailConfig()) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const emailTemplate = purchaseFailureTemplate(errorMessage);
+      await sendEmail(emailTemplate).catch((e) => {
+        console.error('이메일 전송 중 오류:', e);
+      });
+    }
+
     process.exit(1);
   } finally {
     await closeBrowserSession(session);
