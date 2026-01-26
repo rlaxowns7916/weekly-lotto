@@ -163,7 +163,7 @@ async function executePurchase(page: Page): Promise<void> {
       if (matches) {
         console.log(`[NETWORK] Response 매칭: ${url}`);
       }
-      return url.includes('gameBuy.do');
+      return url.includes('execBuy.do');
     },
     { timeout: 30000 }
   );
