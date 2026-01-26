@@ -82,6 +82,8 @@ function getGroupByDayOfWeek(): number {
 }
 
 test.describe('연금복권 720+ 당첨번호 조회 테스트 (로그인 불필요)', () => {
+  // 로그인 불필요 - 병렬 실행 가능
+  test.describe.configure({ mode: 'parallel' });
   test.slow();
 
   test('메인 페이지에서 연금복권 슬라이더가 표시된다', async ({ page }) => {

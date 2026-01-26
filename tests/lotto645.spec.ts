@@ -89,6 +89,8 @@ async function dismissAlertPopup(page: Page): Promise<boolean> {
 }
 
 test.describe('로또 6/45 당첨번호 조회 테스트 (로그인 불필요)', () => {
+  // 로그인 불필요 - 병렬 실행 가능
+  test.describe.configure({ mode: 'parallel' });
   // 외부 사이트 의존 테스트 - 타임아웃 증가
   test.slow();
 
