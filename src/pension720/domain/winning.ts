@@ -108,24 +108,24 @@ export function checkPensionWinning(
     return 'bonus';
   }
 
-  // 3등~7등: 앞 or 뒤 자리 일치 확인
-  // 3등: 앞5자리 or 뒤5자리
-  if (myNum.substring(0, 5) === winNum.substring(0, 5) || myNum.substring(1) === winNum.substring(1)) {
+  // 3등~7등: 뒤 자리 일치 확인 (오른쪽 끝부터 연속)
+  // 3등: 뒤 5자리
+  if (myNum.substring(1) === winNum.substring(1)) {
     return 'rank3';
   }
 
-  // 4등: 앞4자리 or 뒤4자리
-  if (myNum.substring(0, 4) === winNum.substring(0, 4) || myNum.substring(2) === winNum.substring(2)) {
+  // 4등: 뒤 4자리
+  if (myNum.substring(2) === winNum.substring(2)) {
     return 'rank4';
   }
 
-  // 5등: 앞3자리 or 뒤3자리
-  if (myNum.substring(0, 3) === winNum.substring(0, 3) || myNum.substring(3) === winNum.substring(3)) {
+  // 5등: 뒤 3자리
+  if (myNum.substring(3) === winNum.substring(3)) {
     return 'rank5';
   }
 
-  // 6등: 앞2자리 or 뒤2자리
-  if (myNum.substring(0, 2) === winNum.substring(0, 2) || myNum.substring(4) === winNum.substring(4)) {
+  // 6등: 뒤 2자리
+  if (myNum.substring(4) === winNum.substring(4)) {
     return 'rank6';
   }
 
