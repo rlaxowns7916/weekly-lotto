@@ -35,11 +35,9 @@ export interface PensionWinningCheckResult {
  */
 function getMatchInfo(
   ticket: PurchasedPensionTicket,
-  winning: PensionWinningNumbers,
   rank: PensionWinningRank
 ): string {
   const myNum = ticket.pensionNumber.number;
-  const winNum = winning.winningNumber;
 
   switch (rank) {
     case 'rank1':
@@ -72,7 +70,7 @@ export function checkTicketsWinning(
 ): PensionWinningCheckResult {
   const results: PensionTicketWinningResult[] = tickets.map((ticket) => {
     const rank = checkPensionWinning(ticket.pensionNumber, winningNumbers);
-    const matchInfo = getMatchInfo(ticket, winningNumbers, rank);
+    const matchInfo = getMatchInfo(ticket, rank);
 
     return {
       ticket,
