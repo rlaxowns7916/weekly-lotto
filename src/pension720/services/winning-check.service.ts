@@ -49,24 +49,12 @@ function getMatchInfo(
     case 'bonus':
       return `보너스 번호 일치`;
     case 'rank3':
-      if (myNum.substring(0, 5) === winNum.substring(0, 5)) {
-        return `앞 5자리 일치 (${myNum.substring(0, 5)})`;
-      }
       return `뒤 5자리 일치 (${myNum.substring(1)})`;
     case 'rank4':
-      if (myNum.substring(0, 4) === winNum.substring(0, 4)) {
-        return `앞 4자리 일치 (${myNum.substring(0, 4)})`;
-      }
       return `뒤 4자리 일치 (${myNum.substring(2)})`;
     case 'rank5':
-      if (myNum.substring(0, 3) === winNum.substring(0, 3)) {
-        return `앞 3자리 일치 (${myNum.substring(0, 3)})`;
-      }
       return `뒤 3자리 일치 (${myNum.substring(3)})`;
     case 'rank6':
-      if (myNum.substring(0, 2) === winNum.substring(0, 2)) {
-        return `앞 2자리 일치 (${myNum.substring(0, 2)})`;
-      }
       return `뒤 2자리 일치 (${myNum.substring(4)})`;
     case 'rank7':
       return `끝 1자리 일치 (${myNum.charAt(5)})`;
