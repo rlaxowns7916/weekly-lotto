@@ -2,10 +2,12 @@
 
 동행복권 로또6/45 및 연금복권720+ 자동 구매 및 당첨 확인 시스템
 
+Node.js + TypeScript + Playwright 기반, **모바일 웹** UI를 통해 자동화합니다.
+
 ## 기능
 
 ### 로또 6/45
-- **자동 구매**: 매주 월~금 오전 9시에 로또 1장씩 자동 구매
+- **자동 구매**: 매주 월~금 오전 9시에 로또 1장씩 자동 구매 (모바일 웹)
 - **당첨 확인**: 매주 토요일 추첨 후 당첨 결과 이메일 발송
 
 ### 연금복권 720+
@@ -43,6 +45,27 @@ Repository Settings → Secrets and variables → Actions에서 설정:
 - `LOTTO_EMAIL_FROM`: 발신자 이메일
 - `LOTTO_EMAIL_TO`: 수신자 이메일
 
+## 로컬 실행
+
+```bash
+# 의존성 설치
+npm install
+npx playwright install chromium
+
+# 로또 구매 테스트 (DRY RUN - 취소 버튼까지만 진행)
+HEADED=true npm run lotto:buy
+
+# 로또 실제 구매
+HEADED=true DRY_RUN=false npm run lotto:buy
+
+# 연금복권 구매 테스트
+HEADED=true npm run pension:buy
+
+# 당첨 확인
+HEADED=true npm run lotto:check-result
+HEADED=true npm run pension:check-result
+```
+
 ## 테스트
 
 Playwright E2E 테스트로 주요 기능을 검증합니다.
@@ -51,8 +74,11 @@ Playwright E2E 테스트로 주요 기능을 검증합니다.
 # 테스트 목록 확인
 npx playwright test --list
 
-# 전체 테스트 실행
-HEADED=true npx playwright test
+# 전체 테스트 실행 (모바일 뷰포트 - iPhone 14)
+npm run test:e2e
+
+# 브라우저 표시하며 실행
+npm run test:e2e:headed
 
 # 특정 테스트 파일 실행
 npx playwright test tests/lotto645.spec.ts
@@ -71,4 +97,4 @@ npx playwright test tests/lotto645.spec.ts
 PR 및 main 브랜치 푸시 시 자동으로 CI가 실행됩니다.
 
 - **Lint & Type Check**: ESLint + TypeScript 타입 검사
-- **E2E Tests**: Playwright 전체 테스트 실행
+- **E2E Tests**: Playwright 전체 테스트 실행 (모바일 에뮬레이션)

@@ -46,6 +46,11 @@ async function performLogin(page: Page, testInfo: TestInfo): Promise<boolean> {
   await page.waitForLoadState('domcontentloaded');
   await skipIfSiteMaintenance(page, testInfo, '로그인 페이지');
 
+  // 이미 로그인된 상태인지 확인 (로그인 페이지에서 리다이렉트됨)
+  if (!page.url().includes('login') && !page.url().includes('Login')) {
+    return true;
+  }
+
   // 아이디 입력
   const usernameInput = page.getByRole('textbox', { name: '아이디' });
   await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
@@ -59,18 +64,22 @@ async function performLogin(page: Page, testInfo: TestInfo): Promise<boolean> {
   // Enter 키로 로그인 제출
   await passwordInput.press('Enter');
 
-  // 로그인 성공 대기
-  const result = await Promise.race([
-    page
-      .getByRole('button', { name: '로그아웃' })
-      .waitFor({ state: 'visible', timeout: 60000 })
-      .then(() => 'success' as const),
-    page
-      .waitForURL((url) => !url.href.includes('login'), { timeout: 60000 })
-      .then(() => 'redirected' as const),
-  ]).catch(() => 'timeout' as const);
+  // 로그인 결과 대기: URL 변경 또는 페이지 로드 완료까지 대기
+  await page.waitForURL((url) => !url.href.includes('login'), { timeout: 60000 })
+    .catch(() => {/* URL이 변경되지 않을 수 있음 */});
 
-  return result === 'success' || result === 'redirected';
+  // 최종 로그인 상태 확인
+  if (!page.url().includes('login')) {
+    return true;
+  }
+
+  const isLoggedIn = await page.getByRole('button', { name: '로그아웃' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+
+  return isLoggedIn;
 }
 
 /**

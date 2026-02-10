@@ -34,6 +34,7 @@ const networkErrorIndicators = [
   'net::ERR_NAME_NOT_RESOLVED',
   'net::ERR_NETWORK_CHANGED',
   'Navigation timeout of',
+  'The request timed out',
 ];
 
 function getNetworkErrorMessage(error: unknown): string | null {

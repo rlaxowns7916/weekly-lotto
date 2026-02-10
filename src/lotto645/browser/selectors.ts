@@ -8,31 +8,37 @@
 /**
  * 구매 관련 셀렉터
  *
- * ol.dhlottery.co.kr 직접 접근 방식 (iframe 없음)
+ * 모바일 페이지 접근 방식 (ol 서브도메인 모바일 경로)
  */
 export const purchaseSelectors = {
-  /** 구매 페이지 URL (ol 서브도메인 직접 접근) */
-  purchaseUrl: 'https://ol.dhlottery.co.kr/olotto/game/game645.do',
+  /** 구매 페이지 URL (모바일) */
+  purchaseUrl: 'https://ol.dhlottery.co.kr/olotto/game_mobile/game645.do',
 
-  /** 자동번호발급 링크 */
-  autoNumberLink: {
-    role: 'link' as const,
-    name: /자동번호발급/,
+  /** 자동 1매 추가 버튼 */
+  autoNumberButton: {
+    selector: 'button.btn-green02',
+    text: '자동 1매 추가',
   },
 
-  /** 확인 버튼 (슬롯 추가 후) */
-  confirmButton: { role: 'button' as const, name: '확인' },
-
   /** 구매하기 버튼 */
-  buyButton: { role: 'button' as const, name: '구매하기' },
+  buyButton: {
+    selector: '#btnBuy',
+    text: '구매하기',
+  },
 
   /** 구매 확인 팝업 */
   confirmPopup: '#popupLayerConfirm',
 
   /** 구매 확인 팝업 내 확인 버튼 */
-  confirmPopupButton: { role: 'button' as const, name: '확인' },
+  confirmPopupButton: {
+    selector: 'button.buttonOk',
+    text: '확인',
+  },
 
-  /** 닫기 버튼 */
-  closeButton: '#closeLayer',
+  /** 구매 확인 팝업 내 취소 버튼 (DRY RUN용) */
+  cancelPopupButton: {
+    selector: 'button.bg-2',
+    text: '취소',
+  },
 } as const;
 
