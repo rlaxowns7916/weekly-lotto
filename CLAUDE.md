@@ -5,13 +5,17 @@
 
 ## 1. 프로젝트 개요
 - 이 리포지토리는 **Node.js + TypeScript + Playwright** 기반 로또 자동화 프로젝트이다.
-- 동행복권 사이트에서 로또 구매 및 당첨 확인을 자동화한다.
+- 동행복권 **모바일 웹** 사이트에서 로또 구매 및 당첨 확인을 자동화한다.
+- 브라우저는 **iPhone (iOS Safari)** 환경으로 에뮬레이션된다.
 - GitHub Actions를 통해 스케줄 실행된다.
 
 ### 주요 커맨드
-- `npm run buy` - 로또 구매 (DRY_RUN=false로 실제 구매)
-- `npm run check` - 최근 1주일 구매 내역 조회
-- `npm run check-result` - 당첨 확인 및 이메일 전송
+- `npm run lotto:buy` - 로또 구매 (DRY_RUN=false로 실제 구매)
+- `npm run lotto:check` - 최근 1주일 구매 내역 조회
+- `npm run lotto:check-result` - 당첨 확인 및 이메일 전송
+- `npm run pension:buy` - 연금복권 구매
+- `npm run pension:check` - 연금복권 구매 내역 조회
+- `npm run pension:check-result` - 연금복권 당첨 확인
 
 ---
 
@@ -21,7 +25,7 @@
 |------|------|
 | Node.js 20+ | 런타임 |
 | TypeScript | 타입 안전성 |
-| Playwright | 브라우저 자동화 |
+| Playwright | 브라우저 자동화 (모바일 에뮬레이션) |
 | Nodemailer | 이메일 전송 |
 | ESLint | 코드 린팅 |
 
@@ -51,27 +55,43 @@
 
 ```
 src/
-├── commands/           # CLI 진입점
-│   ├── buy.ts          # 구매 커맨드
-│   ├── check.ts        # 구매 내역 조회
-│   └── check-result.ts # 당첨 확인
-├── browser/
-│   ├── context.ts      # 브라우저 세션 관리
-│   ├── selectors.ts    # DOM 셀렉터
-│   └── actions/        # 브라우저 자동화 액션
-│       ├── login.ts
-│       ├── purchase.ts
-│       ├── check-purchase.ts
-│       └── fetch-winning.ts
-├── domain/             # 도메인 타입
-│   ├── ticket.ts
-│   └── winning.ts
-├── services/           # 비즈니스 서비스
-│   ├── email.service.ts
-│   ├── email.templates.ts
-│   └── winning-check.service.ts
-└── config/
-    └── index.ts        # 환경 변수 로더
+├── lotto645/              # 로또 6/45
+│   ├── commands/          # CLI 진입점
+│   │   ├── buy.ts
+│   │   ├── check.ts
+│   │   └── check-result.ts
+│   ├── browser/
+│   │   ├── selectors.ts   # 구매 페이지 셀렉터 (모바일)
+│   │   └── actions/
+│   │       ├── purchase.ts
+│   │       ├── check-purchase.ts
+│   │       └── fetch-winning.ts
+│   ├── domain/
+│   │   ├── ticket.ts
+│   │   └── winning.ts
+│   └── services/
+│       ├── email.templates.ts
+│       └── winning-check.service.ts
+├── pension720/            # 연금복권 720+
+│   ├── commands/
+│   ├── browser/
+│   ├── domain/
+│   └── services/
+└── shared/                # 공통 모듈
+    ├── browser/
+    │   ├── context.ts     # 브라우저 세션 (모바일 에뮬레이션)
+    │   ├── selectors.ts   # 로그인 셀렉터
+    │   └── actions/
+    │       ├── login.ts
+    │       └── purchase-history.ts
+    ├── config/
+    │   └── index.ts       # 환경 변수 로더
+    ├── services/
+    │   └── email.service.ts
+    └── utils/
+        ├── retry.ts
+        ├── date.ts
+        └── html.ts
 ```
 
 ---
@@ -118,20 +138,37 @@ HEADED=true           # true면 브라우저 표시
 npm install
 npx playwright install chromium
 
-# 구매 테스트 (DRY RUN)
-HEADED=true npm run buy
+# 로또 구매 테스트 (DRY RUN)
+HEADED=true npm run lotto:buy
 
-# 실제 구매
-HEADED=true DRY_RUN=false npm run buy
+# 로또 실제 구매
+HEADED=true DRY_RUN=false npm run lotto:buy
 
-# 당첨 확인
-HEADED=true npm run check-result
+# 로또 당첨 확인
+HEADED=true npm run lotto:check-result
+
+# 연금복권 구매 테스트 (DRY RUN)
+HEADED=true npm run pension:buy
+
+# 연금복권 실제 구매
+HEADED=true DRY_RUN=false npm run pension:buy
 ```
 
 ---
 
-## 8. GitHub Actions
+## 8. 브라우저 환경
 
-- **buy.yml**: 평일 09:00 KST 로또 구매
-- **check.yml**: 토요일 21:00 KST 당첨 확인
+- **모바일 에뮬레이션**: iPhone (iOS 17, Safari) 환경으로 동작
+- **뷰포트**: 390x844 (iPhone 14)
+- **구매 URL**: `ol.dhlottery.co.kr/olotto/game_mobile/game645.do` (모바일 전용)
+- **봇 탐지 우회**: webdriver 숨김, navigator.platform = 'iPhone'
+
+---
+
+## 9. GitHub Actions
+
+- **lotto-buy.yml**: 평일 09:00 KST 로또 구매
+- **pension-buy.yml**: 평일 10:00 KST 연금복권 구매
+- **lotto-check.yml**: 토요일 22:00 KST 로또 당첨 확인
+- **pension-check.yml**: 목요일 21:00 KST 연금복권 당첨 확인
 - **auto-commit.yml**: 일요일 09:00 KST 자동 커밋

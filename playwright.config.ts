@@ -35,7 +35,7 @@ export default defineConfig({
     headless: process.env.HEADED !== 'true',
 
     // 브라우저 컨텍스트 옵션
-    viewport: { width: 1280, height: 720 },
+    viewport: { width: 1920, height: 1080 },
     ignoreHTTPSErrors: true,
 
     // 스크린샷: 실패 시에만
@@ -56,7 +56,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['iPhone 14'] },
     },
   ],
 

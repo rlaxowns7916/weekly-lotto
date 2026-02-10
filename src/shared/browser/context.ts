@@ -54,29 +54,28 @@ export async function createBrowserSession(
   });
 
   const context = await browser.newContext({
-    viewport: { width: 1920, height: 1080 },
+    viewport: { width: 390, height: 844 },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    isMobile: true,
+    hasTouch: true,
     // Headless 탐지 우회 설정
     bypassCSP: true,
     extraHTTPHeaders: {
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-      // HeadlessChrome 노출 방지
-      'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"Windows"',
+      'sec-ch-ua-mobile': '?1',
+      'sec-ch-ua-platform': '"iOS"',
     },
   });
 
   // context 레벨에서 navigator 속성 우회 (페이지 생성 전에 설정)
   // 사이트의 봇 탐지 스크립트보다 먼저 실행되어야 함
   await context.addInitScript(`
-    // Navigator.prototype에서 platform getter 재정의
-    // 사이트 체크: /win16|win32|win64|mac/ig.test(navigator.platform)
+    // Navigator.prototype에서 platform getter 재정의 (모바일)
     delete Navigator.prototype.platform;
     Navigator.prototype.__defineGetter__('platform', function() {
-      return 'Win32';
+      return 'iPhone';
     });
 
     // webdriver 숨기기
