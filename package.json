@@ -12,7 +12,7 @@
     "pension:check-result": "node --env-file=.env --import tsx src/pension720/commands/check-result.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "test": "vitest",
+    "test": "vitest run src",
     "test:e2e": "npx playwright test",
     "test:e2e:headed": "HEADED=true npx playwright test",
     "test:e2e:ui": "npx playwright test --ui"
