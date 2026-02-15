@@ -15,6 +15,7 @@ import {
   ensurePurchaseHistoryAccessible,
   getRecentWeekButtonOrSkip,
 } from './utils/purchase-history.js';
+import { buildFailureReason, waitVisibleWithReason } from './utils/failure-diagnostics.js';
 
 // URL 상수 (모바일)
 const MAIN_URL = 'https://www.dhlottery.co.kr/main';
@@ -26,6 +27,13 @@ const PURCHASE_HISTORY_URL = 'https://www.dhlottery.co.kr/mypage/mylotteryledger
 const PRODUCT_CODE = 'LO40';
 // 티켓 모달 ID
 const MODAL_ID = '#Lotto645TicketP';
+
+const lottoPurchaseProbes = [
+  { label: 'autoAddButton', query: 'button.btn-green02' },
+  { label: 'buyButton', query: '#btnBuy' },
+  { label: 'confirmPopup', query: '#popupLayerConfirm' },
+  { label: 'logoutButton', query: 'button:has-text("로그아웃")' },
+];
 
 const getCredentials = () => ({
   username: process.env.LOTTO_USERNAME || '',
@@ -77,6 +85,21 @@ async function performLogin(page: Page, testInfo: TestInfo): Promise<boolean> {
     .catch(() => false);
 
   return isLoggedIn;
+}
+
+async function openLottoPurchasePage(page: Page, testInfo: TestInfo, context: string): Promise<void> {
+  await page.goto(PURCHASE_URL, { timeout: 60000 });
+  await page.waitForLoadState('domcontentloaded');
+
+  if (!page.url().includes('game_mobile')) {
+    const reason = await buildFailureReason(page, context, lottoPurchaseProbes);
+    await testInfo.attach(`${context}-diagnostics`, {
+      body: reason,
+      contentType: 'text/plain',
+    });
+
+    throw new Error(`모바일 구매 페이지 접근 실패: ${reason}`);
+  }
 }
 
 // ============================================================
@@ -143,42 +166,38 @@ test.describe('로또 6/45 모바일 구매 플로우', () => {
     expect(loggedIn).toBeTruthy();
   });
 
-  test('모바일 구매 페이지에 접근할 수 있다', async ({ page }) => {
-    await page.goto(PURCHASE_URL, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+  test('모바일 구매 페이지에 접근할 수 있다', async ({ page }, testInfo) => {
+    await openLottoPurchasePage(page, testInfo, 'lotto-mobile-page-open');
 
     expect(page.url()).toContain('ol.dhlottery.co.kr');
     expect(page.url()).toContain('game_mobile');
   });
 
-  test('"자동 1매 추가" 버튼(button.btn-green02)이 표시된다', async ({ page }) => {
-    await page.goto(PURCHASE_URL, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+  test('"자동 1매 추가" 버튼(button.btn-green02)이 표시된다', async ({ page }, testInfo) => {
+    await openLottoPurchasePage(page, testInfo, 'lotto-auto-button-open');
 
     const autoBtn = page.locator('button.btn-green02');
-    await expect(autoBtn).toBeVisible({ timeout: 30000 });
+    await waitVisibleWithReason(page, autoBtn, 30000, 'lotto-auto-button-visible', lottoPurchaseProbes, testInfo);
 
     const text = await autoBtn.textContent();
     expect(text).toContain('자동');
   });
 
-  test('"구매하기" 버튼(#btnBuy)이 표시된다', async ({ page }) => {
-    await page.goto(PURCHASE_URL, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+  test('"구매하기" 버튼(#btnBuy)이 표시된다', async ({ page }, testInfo) => {
+    await openLottoPurchasePage(page, testInfo, 'lotto-buy-button-open');
 
     const buyBtn = page.locator('#btnBuy');
-    await expect(buyBtn).toBeVisible({ timeout: 30000 });
+    await waitVisibleWithReason(page, buyBtn, 30000, 'lotto-buy-button-visible', lottoPurchaseProbes, testInfo);
 
     const text = await buyBtn.textContent();
     expect(text).toContain('구매하기');
   });
 
-  test('자동 1매 추가 클릭 후 번호가 생성된다', async ({ page }) => {
-    await page.goto(PURCHASE_URL, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+  test('자동 1매 추가 클릭 후 번호가 생성된다', async ({ page }, testInfo) => {
+    await openLottoPurchasePage(page, testInfo, 'lotto-auto-add-open');
 
     const autoBtn = page.locator('button.btn-green02');
-    await autoBtn.waitFor({ state: 'visible', timeout: 30000 });
+    await waitVisibleWithReason(page, autoBtn, 30000, 'lotto-auto-add-button-visible', lottoPurchaseProbes, testInfo);
     await autoBtn.click();
 
     // 번호가 추가될 때까지 대기
@@ -186,36 +205,34 @@ test.describe('로또 6/45 모바일 구매 플로우', () => {
 
     // 구매하기 버튼이 여전히 표시되는지 확인
     const buyBtn = page.locator('#btnBuy');
-    await expect(buyBtn).toBeVisible({ timeout: 10000 });
+    await waitVisibleWithReason(page, buyBtn, 10000, 'lotto-buy-button-after-auto-add', lottoPurchaseProbes, testInfo);
   });
 
-  test('구매하기 클릭 후 확인 팝업(#popupLayerConfirm)이 표시된다', async ({ page }) => {
-    await page.goto(PURCHASE_URL, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+  test('구매하기 클릭 후 확인 팝업(#popupLayerConfirm)이 표시된다', async ({ page }, testInfo) => {
+    await openLottoPurchasePage(page, testInfo, 'lotto-confirm-popup-open');
 
     // 1. 자동 1매 추가
     const autoBtn = page.locator('button.btn-green02');
-    await autoBtn.waitFor({ state: 'visible', timeout: 30000 });
+    await waitVisibleWithReason(page, autoBtn, 30000, 'lotto-confirm-popup-auto-button', lottoPurchaseProbes, testInfo);
     await autoBtn.click();
     await page.waitForTimeout(1000);
 
     // 2. 구매하기 클릭
     const buyBtn = page.locator('#btnBuy');
-    await buyBtn.waitFor({ state: 'visible', timeout: 30000 });
+    await waitVisibleWithReason(page, buyBtn, 30000, 'lotto-confirm-popup-buy-button', lottoPurchaseProbes, testInfo);
     await buyBtn.click();
 
     // 3. 확인 팝업 표시 확인
     const confirmPopup = page.locator('#popupLayerConfirm');
-    await expect(confirmPopup).toBeVisible({ timeout: 30000 });
+    await waitVisibleWithReason(page, confirmPopup, 30000, 'lotto-confirm-popup-visible', lottoPurchaseProbes, testInfo);
   });
 
-  test('확인 팝업에 확인(button.buttonOk)과 취소(button.bg-2) 버튼이 있다', async ({ page }) => {
-    await page.goto(PURCHASE_URL, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+  test('확인 팝업에 확인(button.buttonOk)과 취소(button.bg-2) 버튼이 있다', async ({ page }, testInfo) => {
+    await openLottoPurchasePage(page, testInfo, 'lotto-confirm-buttons-open');
 
     // 자동 1매 추가 → 구매하기
     const autoBtn = page.locator('button.btn-green02');
-    await autoBtn.waitFor({ state: 'visible', timeout: 30000 });
+    await waitVisibleWithReason(page, autoBtn, 30000, 'lotto-confirm-buttons-auto-button', lottoPurchaseProbes, testInfo);
     await autoBtn.click();
     await page.waitForTimeout(1000);
 
@@ -224,28 +241,27 @@ test.describe('로또 6/45 모바일 구매 플로우', () => {
 
     // 팝업 대기
     const confirmPopup = page.locator('#popupLayerConfirm');
-    await confirmPopup.waitFor({ state: 'visible', timeout: 30000 });
+    await waitVisibleWithReason(page, confirmPopup, 30000, 'lotto-confirm-buttons-popup', lottoPurchaseProbes, testInfo);
 
     // 확인 버튼 검증
     const okBtn = confirmPopup.locator('button.buttonOk');
-    await expect(okBtn).toBeVisible({ timeout: 10000 });
+    await waitVisibleWithReason(page, okBtn, 10000, 'lotto-confirm-buttons-ok', lottoPurchaseProbes, testInfo);
     const okText = await okBtn.textContent();
     expect(okText).toContain('확인');
 
     // 취소 버튼 검증
     const cancelBtn = confirmPopup.locator('button.bg-2');
-    await expect(cancelBtn).toBeVisible({ timeout: 10000 });
+    await waitVisibleWithReason(page, cancelBtn, 10000, 'lotto-confirm-buttons-cancel', lottoPurchaseProbes, testInfo);
     const cancelText = await cancelBtn.textContent();
     expect(cancelText).toContain('취소');
   });
 
-  test('DRY RUN: 취소 버튼 클릭하면 팝업이 닫힌다', async ({ page }) => {
-    await page.goto(PURCHASE_URL, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+  test('DRY RUN: 취소 버튼 클릭하면 팝업이 닫힌다', async ({ page }, testInfo) => {
+    await openLottoPurchasePage(page, testInfo, 'lotto-dry-run-open');
 
     // 1. 자동 1매 추가
     const autoBtn = page.locator('button.btn-green02');
-    await autoBtn.waitFor({ state: 'visible', timeout: 30000 });
+    await waitVisibleWithReason(page, autoBtn, 30000, 'lotto-dry-run-auto-button', lottoPurchaseProbes, testInfo);
     await autoBtn.click();
     await page.waitForTimeout(1000);
 
@@ -255,7 +271,7 @@ test.describe('로또 6/45 모바일 구매 플로우', () => {
 
     // 3. 팝업 대기
     const confirmPopup = page.locator('#popupLayerConfirm');
-    await confirmPopup.waitFor({ state: 'visible', timeout: 30000 });
+    await waitVisibleWithReason(page, confirmPopup, 30000, 'lotto-dry-run-popup', lottoPurchaseProbes, testInfo);
 
     // 4. 취소 클릭 (DRY RUN)
     const cancelBtn = confirmPopup.locator('button.bg-2');
