@@ -31,8 +31,9 @@ import {
 } from '../services/email.templates.js';
 import type { PensionGroup } from '../domain/ticket.js';
 import { isValidGroup } from '../domain/ticket.js';
+import { pathToFileURL } from 'node:url';
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   // DRY_RUN 환경변수 확인 (기본값: true)
   const dryRun = process.env.DRY_RUN !== 'false';
 
@@ -153,4 +154,9 @@ async function main(): Promise<void> {
   console.log('\n🎉 완료!');
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error('\n❌ 치명적 실패:', error);
+    process.exit(1);
+  });
+}
