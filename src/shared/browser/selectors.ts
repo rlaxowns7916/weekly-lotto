@@ -8,6 +8,8 @@
  * 로그인 관련 셀렉터
  */
 export const loginSelectors = {
+  homeUrl: 'https://www.dhlottery.co.kr/',
+
   /** 로그인 페이지 URL (직접 접근) */
   url: 'https://www.dhlottery.co.kr/login',
 
