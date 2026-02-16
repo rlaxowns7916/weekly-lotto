@@ -11,6 +11,66 @@ import { saveErrorScreenshot } from '../context.js';
 import { withRetry } from '../../utils/retry.js';
 import { AppError, toAppError } from '../../utils/error.js';
 
+const queueOrOverlaySelectors = [
+  '#waitPage',
+  '#isWaitPage',
+  '#ajax_loading',
+  '.popup-bg.over.loadingOverlay',
+] as const;
+
+async function isLocatorVisible(page: Page, selector: string, timeoutMs = 800): Promise<boolean> {
+  return page
+    .locator(selector)
+    .waitFor({ state: 'visible', timeout: timeoutMs })
+    .then(() => true)
+    .catch(() => false);
+}
+
+async function waitForLoginInterferenceToClear(page: Page, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const isRejectedState = await isLocatorVisible(page, '#isRejectPage, #isNotUse', 600);
+    if (isRejectedState) {
+      throw new AppError({
+        code: 'NETWORK_NAVIGATION_TIMEOUT',
+        category: 'NETWORK',
+        retryable: false,
+        message: '로그인 실패: 사이트 접속이 차단된 상태입니다',
+      });
+    }
+
+    const visibility = await Promise.all(
+      queueOrOverlaySelectors.map((selector) => isLocatorVisible(page, selector, 600))
+    );
+    const hasBlockingOverlay = visibility.some(Boolean);
+
+    if (!hasBlockingOverlay) {
+      return;
+    }
+
+    const closeWaitButtonVisible = await isLocatorVisible(page, '.close-wait-btn', 600);
+    if (closeWaitButtonVisible) {
+      await page.locator('.close-wait-btn').click({ timeout: 1500 }).catch(() => undefined);
+    }
+
+    await Promise.all(
+      queueOrOverlaySelectors.map((selector) =>
+        page.locator(selector).waitFor({ state: 'hidden', timeout: 2500 }).catch(() => undefined)
+      )
+    );
+
+    await page.waitForTimeout(500);
+  }
+
+  throw new AppError({
+    code: 'NETWORK_NAVIGATION_TIMEOUT',
+    category: 'NETWORK',
+    retryable: true,
+    message: '로그인 실패: 대기열 또는 로딩 오버레이가 해제되지 않았습니다',
+  });
+}
+
 /**
  * 동행복권 사이트 로그인
  *
@@ -35,9 +95,11 @@ export async function login(page: Page): Promise<void> {
     async () => {
       await page.goto(loginSelectors.homeUrl, { timeout: 60000 });
       await page.waitForLoadState('domcontentloaded');
+      await waitForLoginInterferenceToClear(page, 10000);
 
       await page.goto(loginSelectors.url, { timeout: 60000 });
       await page.waitForLoadState('domcontentloaded');
+      await waitForLoginInterferenceToClear(page, 45000);
 
       // 아이디 입력
       const usernameInput = page.getByRole(loginSelectors.usernameInput.role, {
@@ -55,6 +117,7 @@ export async function login(page: Page): Promise<void> {
 
       // Enter 키로 로그인 제출
       await passwordInput.press('Enter');
+      await waitForLoginInterferenceToClear(page, 30000);
 
       // 로그인 결과 대기: 로그아웃 버튼(성공) 또는 에러 메시지(실패)
       const result = await Promise.race([
@@ -82,7 +145,7 @@ export async function login(page: Page): Promise<void> {
           code: 'AUTH_INVALID_CREDENTIALS',
           category: 'AUTH',
           retryable: false,
-          message: '로그인 실패: 아이디 또는 비밀번호가 틀렸습니다 (재시도 안함)',
+          message: '로그인 실패: 아이디 또는 비밀번호가 틀렸습니다',
         });
       }
 
@@ -100,7 +163,7 @@ export async function login(page: Page): Promise<void> {
         code: 'NETWORK_NAVIGATION_TIMEOUT',
         category: 'NETWORK',
         retryable: true,
-        message: '로그인 타임아웃: 사이트 응답이 느립니다',
+        message: '로그인 타임아웃: 사이트 응답 또는 대기열 해제가 지연됩니다',
       });
     },
     {
@@ -108,9 +171,8 @@ export async function login(page: Page): Promise<void> {
       baseDelayMs: 2000,
       maxDelayMs: 10000,
       shouldRetry: (error) => {
-        // 아이디/비밀번호 오류는 재시도 안 함
-        if (error instanceof Error && error.message.includes('재시도 안함')) {
-          return false;
+        if (error instanceof AppError) {
+          return error.retryable;
         }
         return true;
       },
