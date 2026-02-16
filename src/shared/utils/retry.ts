@@ -1,3 +1,11 @@
+import {
+  AppError,
+  classifyErrorMessage,
+  getErrorMessage,
+  toAppError,
+  type RetryDiagnostic,
+} from './error.js';
+
 /**
  * 재시도 유틸리티 (지수 백오프 + Jitter)
  */
@@ -75,9 +83,11 @@ export async function withRetry<T>(
   } = options;
 
   let lastError: unknown;
+  let attemptCount = 0;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      attemptCount = attempt + 1;
       return await fn();
     } catch (error) {
       lastError = error;
@@ -106,7 +116,33 @@ export async function withRetry<T>(
     }
   }
 
-  throw lastError;
+  const lastErrorMessage = getErrorMessage(lastError);
+  const classification = classifyErrorMessage(lastErrorMessage);
+  const retry: RetryDiagnostic = {
+    attemptCount,
+    maxRetries,
+    lastErrorMessage,
+  };
+
+  if (lastError instanceof AppError) {
+    throw new AppError({
+      code: lastError.code,
+      category: lastError.category,
+      retryable: lastError.retryable,
+      message: lastError.message,
+      classificationReason: lastError.classificationReason,
+      retry,
+      cause: lastError,
+    });
+  }
+
+  throw toAppError(lastError, {
+    code: classification.code,
+    category: classification.category,
+    retryable: classification.retryable,
+    classificationReason: classification.classificationReason,
+    retry,
+  });
 }
 
 /**

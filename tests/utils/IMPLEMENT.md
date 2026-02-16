@@ -4,13 +4,14 @@ Schema-Version: SRTE-DOCS-1
 ## 모듈 분해
 - `site-availability.ts`: 점검 문구 감지(`skipIfSiteMaintenance`)와 네트워크 가드(`attachNetworkGuard`)를 제공한다.
 - `purchase-history.ts`: 구매내역 상세 검색 열기, 최근 1주일 버튼 확보, 팝업 dismiss, 접근 가능성 검증을 제공한다.
-- `failure-diagnostics.ts`: 실패 시점 진단 정보 생성(`buildFailureReason`)과 visible 대기 래퍼(`waitVisibleWithReason`)를 제공한다.
+- `failure-diagnostics.ts`: 실패 시점 진단 정보 생성(`buildFailureReason`), OCR 힌트 매핑, attachment 상태 검증 컨텍스트 생성을 제공한다.
 
 ## 호출 흐름
 1. 테스트 코드가 `attachNetworkGuard`로 페이지 이동을 래핑한다.
 2. 시나리오 중 점검 문구/구매내역 접근 여부를 헬퍼로 판단한다.
 3. 핵심 locator 대기 시 `waitVisibleWithReason` 호출.
 4. 실패하면 `buildFailureReason`으로 상태 문자열 생성 후 `testInfo.attach`로 기록하고 throw.
+5. OCR/HTML 아티팩트 검증이 필요한 케이스는 diagnostics와 함께 힌트/첨부 상태 필드를 기록한다.
 
 ## 핵심 알고리즘
 - 네트워크 가드:
@@ -20,11 +21,15 @@ Schema-Version: SRTE-DOCS-1
 - 진단 문자열 생성:
   - 프로브 목록 순회 -> selector `count`/`visible` 수집.
   - URL/title/login 여부/점검 문구를 합성해 단일 문자열 생성.
+- OCR/첨부 상태 생성:
+  - OCR 힌트 코드와 diagnostics 매핑 코드를 함께 생성.
+  - 첨부 용량 정책 검증용 `attachmentStatus` 필드를 포함.
 
 ## 데이터 모델
 - `NetworkGuardOptions`: `maxRetries`, `retryDelayMs`.
 - `SelectorProbe`: `label`, `query`.
 - `SelectorProbeResult`: `label`, `count`, `visible`.
+- `ArtifactDiagnostic`: `ocrHintCode`, `mappedErrorCode`, `attachmentStatus`.
 
 ## 외부 연동 정책
 - 동행복권 웹 접근 실패는 재시도 후 skip으로 처리한다.
@@ -41,10 +46,17 @@ Schema-Version: SRTE-DOCS-1
 - visible 대기 실패 시 diagnostics를 남긴 뒤 컨텍스트 포함 에러를 던진다.
 - 구매내역 헬퍼에서 전제조건 불충족은 skip 또는 null 반환으로 처리한다.
 
+## 실패 상세 진단 구현 정책
+- `buildFailureReason` 출력은 운영 분류 매핑에 필요한 `context`, `maintenance`, `selectors`를 항상 포함한다.
+- `waitVisibleWithReason` 실패 메시지는 원본 오류와 진단 문자열을 함께 보존해 코드 분류 회귀 테스트에 사용한다.
+- 민감정보 마스킹 규칙(`secretLeakCount=0`) 검증을 위한 필드 제약을 유지한다.
+- OCR/첨부 검증 케이스는 `ocrHintCode`와 `attachmentStatus`를 동시에 기록해 상관관계 회귀를 보장한다.
+
 ## 관측성
 - diagnostics attachment 이름: `${context}-diagnostics`.
 - diagnostics 필드: `context`, `url`, `title`, `isLoginPage`, `maintenance`, `selectors`.
 - 네트워크 실패 skip 메시지에 대상 URL과 원본 메시지를 포함한다.
+- OCR/첨부 검증 필드: `ocrHintCode`, `mappedErrorCode`, `attachmentStatus`.
 
 ## 테스트 설계
 - 이 경계는 독립 테스트 파일보다는 E2E 시나리오에서 간접 검증된다.
@@ -75,6 +87,7 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `tests/utils/site-availability.ts#attachNetworkGuard` | `tests/lotto645.spec.ts::모바일 구매 페이지에 접근할 수 있다` |
 | SCN-002 | `tests/utils/failure-diagnostics.ts#waitVisibleWithReason` | `tests/lotto645.spec.ts::구매하기 클릭 후 확인 팝업(#popupLayerConfirm)이 표시된다` |
+| SCN-003 | `tests/utils/failure-diagnostics.ts#buildFailureReason` | `tests/lotto645.spec.ts::should_map_ocr_hint_and_attachment_status_in_failure_diagnostics` |
 
 ## 변경 규칙 (권장)
 - MUST: diagnostics attachment 필드(`context`, `url`, `title`, `maintenance`, `selectors`)를 유지한다.

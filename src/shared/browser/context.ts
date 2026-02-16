@@ -3,6 +3,7 @@
  */
 
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { getConfig } from '../config/index.js';
 
 /**
@@ -22,6 +23,20 @@ export interface BrowserSession {
   browser: Browser;
   context: BrowserContext;
   page: Page;
+}
+
+export interface HtmlSnapshotFile {
+  path: string;
+  url: string;
+}
+
+export interface FailureHtmlSnapshotResult {
+  status: 'SUCCESS' | 'FAILED';
+  main?: HtmlSnapshotFile;
+  frames: HtmlSnapshotFile[];
+  captureTs: number;
+  url: string;
+  failureReason?: string;
 }
 
 /**
@@ -127,3 +142,65 @@ export async function saveErrorScreenshot(
   }
 }
 
+function maskSensitiveText(input: string): string {
+  return input
+    .replace(/(password\s*[=:]\s*)([^&\s"'<>]+)/gi, '$1***')
+    .replace(/(token\s*[=:]\s*)([^&\s"'<>]+)/gi, '$1***')
+    .replace(/(authorization\s*[=:]\s*)([^&\s"'<>]+)/gi, '$1***');
+}
+
+export async function saveFailureHtmlSnapshot(
+  page: Page,
+  name: string
+): Promise<FailureHtmlSnapshotResult> {
+  const captureTs = Date.now();
+  const baseUrl = page.url();
+  const directoryPath = 'artifacts/html-failures';
+
+  try {
+    await mkdir(directoryPath, { recursive: true });
+
+    const mainHtml = maskSensitiveText(await page.content());
+    const mainPath = `${directoryPath}/${name}-${captureTs}-main.html`;
+    await writeFile(mainPath, mainHtml, 'utf-8');
+
+    const frames: HtmlSnapshotFile[] = [];
+    const frameErrors: string[] = [];
+
+    for (const [index, frame] of page.frames().entries()) {
+      if (frame === page.mainFrame()) {
+        continue;
+      }
+
+      try {
+        const frameHtml = maskSensitiveText(await frame.content());
+        const framePath = `${directoryPath}/${name}-${captureTs}-frame-${index}.html`;
+        await writeFile(framePath, frameHtml, 'utf-8');
+        frames.push({ path: framePath, url: frame.url() });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        frameErrors.push(`frame-${index}: ${message}`);
+      }
+    }
+
+    return {
+      status: 'SUCCESS',
+      main: { path: mainPath, url: baseUrl },
+      frames,
+      captureTs,
+      url: baseUrl,
+      failureReason: frameErrors.length > 0 ? frameErrors.join(' | ') : undefined,
+    };
+  } catch (error) {
+    const failureReason = error instanceof Error ? error.message : String(error);
+    console.error(`HTML 스냅샷 저장 실패: ${failureReason}`);
+
+    return {
+      status: 'FAILED',
+      frames: [],
+      captureTs,
+      url: baseUrl,
+      failureReason,
+    };
+  }
+}

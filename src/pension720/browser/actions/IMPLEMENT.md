@@ -39,6 +39,11 @@ Schema-Version: SRTE-DOCS-1
 - 구매 예외 발생 시 스크린샷 저장 후 예외를 재던진다.
 - 티켓/당첨번호 파싱 실패는 `null` 반환으로 처리한다.
 
+## 실패 상세 진단 구현 정책
+- 구매 페이지 이동/요소 대기 실패는 `NETWORK_NAVIGATION_TIMEOUT` 또는 `DOM_SELECTOR_NOT_VISIBLE`로 분류한다.
+- 모달/슬라이더 파싱 실패는 `PARSE_FORMAT_INVALID`로 분류하고 원본 selector 상태를 진단 요약에 포함한다.
+- 후검증 미탐지는 `PURCHASE_VERIFICATION_FAILED`로 고정 분류한다.
+
 ## 관측성
 - 단계별 `console.log` 및 파싱 실패 `console.warn`/`console.error` 로그 출력.
 - 스크린샷 prefix에 액션 컨텍스트를 반영한다.

@@ -25,14 +25,17 @@ Schema-Version: SRTE-DOCS-1
   - 번호는 조(1~5) + 6자리 문자열 계약을 따른다.
 - 출력 타입/필드:
   - 구매/조회 티켓 목록, 당첨 집계 결과, 콘솔 로그.
+  - 실패 진단 결과(`ocr.status`, `ocr.hintCode`, `html.main.path`, `html.frames[]`).
   - 선택적 이메일 전송 결과(`success`, `messageId` 또는 `error`).
 
 ## 행동 시나리오
 - SCN-001: Given 유효 계정과 정상 페이지 상태, When `pension:*` 명령을 실행, Then `processExitCode=0` and `output contains "완료"`.
-- SCN-002: Given 로그인/페이지 파싱/이메일 전송 중 오류, When 명령이 예외를 처리, Then `processExitCode=1` or `earlyReturn=true` and `output contains "실패"`.
+- SCN-002: Given 로그인/페이지 파싱/이메일 전송 중 오류, When 명령이 예외를 처리, Then `processExitCode=1` or `earlyReturn=true` and `error.code!=null` and `output contains "실패"`.
+- SCN-003: Given 실패 페이지 컨텍스트가 유효, When 실패 후처리 실행, Then `screenshotPath!=null` and (`html.main.path!=null` or `html.status=FAILED`) and `ocr.status!=null`.
 
 ## 오류 계약
-- 에러 코드: 고정 에러 코드 상수는 없다(오류 메시지 기반 처리).
+- 에러 코드: 공통 분류 코드를 사용하고 연금복권 경계에서 필요 시 `PENSION_*` 접두사로 확장한다.
+- 에러 코드: OCR 관련 코드(`OCR_ENGINE_UNAVAILABLE`, `OCR_TIMEOUT`, `OCR_TEXT_NOT_FOUND`, `OCR_EXTRACTION_FAILED`)를 공통 taxonomy에 포함한다.
 - HTTP status(해당 시): 없음(CLI + 브라우저 자동화 컨텍스트).
 - 재시도 가능 여부: 일부 가능(`withRetry`가 적용된 하위 액션 경로).
 - 발생 조건: 로그인 실패, 구매/조회 셀렉터 대기 실패, 당첨번호 파싱 실패, 이메일 전송 실패.
@@ -50,7 +53,7 @@ Schema-Version: SRTE-DOCS-1
 - 동시성 요구: 단일 명령 실행 단위에서 순차 흐름으로 동작한다.
 
 ## 의존성 계약
-- 내부 경계: `src/pension720/browser`, `src/pension720/browser/actions`, `src/pension720/commands`, `src/pension720/domain`, `src/pension720/services`, `src/shared/browser`, `src/shared/browser/actions`, `src/shared/config`, `src/shared/services`, `src/shared/utils`.
+- 내부 경계: `src/pension720/browser`, `src/pension720/browser/actions`, `src/pension720/commands`, `src/pension720/domain`, `src/pension720/services`, `src/shared/browser`, `src/shared/browser/actions`, `src/shared/config`, `src/shared/ocr`, `src/shared/services`, `src/shared/utils`.
 - 외부 서비스: 동행복권 메인/모바일 구매/구매내역 페이지.
 - 외부 라이브러리: Playwright.
 
@@ -59,6 +62,7 @@ Schema-Version: SRTE-DOCS-1
 - [ ] `DRY_RUN` 값에 따라 실구매/테스트 경로가 분기된다.
 - [ ] `PENSION_GROUP` 유효값(1~5)일 때 조 지정이 적용된다.
 - [ ] 조회/당첨확인 결과가 도메인 타입 계약과 일치한다.
+- [ ] 실패 메일에 스크린샷/HTML 첨부가 포함되거나 10MB 상한 초과 시 부분 첨부 상태가 기록된다.
 
 ## 오픈 질문
 - 없음

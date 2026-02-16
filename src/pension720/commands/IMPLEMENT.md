@@ -10,8 +10,9 @@ Schema-Version: SRTE-DOCS-1
 1. 커맨드가 브라우저 세션을 생성한다.
 2. 공통 로그인 함수를 호출한다.
 3. 명령 목적별 도메인 브라우저 액션/서비스를 호출한다.
-4. 실패 시 로그 후 `process.exit(1)` 처리한다.
-5. `finally`에서 세션을 종료한다.
+4. 실패 시 스크린샷/HTML/OCR 진단을 수집하고 첨부 메일을 구성한다.
+5. 로그 후 `process.exit(1)` 처리한다.
+6. `finally`에서 세션을 종료한다.
 
 ## 핵심 알고리즘
 - `buy.ts`:
@@ -39,9 +40,17 @@ Schema-Version: SRTE-DOCS-1
 - 최상위 `try/catch`에서 오류 로그를 남기고 종료 코드 1로 종료.
 - 구매 실패 시 실패 템플릿 메일 전송을 추가 시도.
 
+## 실패 상세 진단 구현 정책
+- 최상위 catch는 기존 `process.exit(1)` 계약을 유지하면서 구조화 에러(`error.code`, `error.category`)를 로그에 포함한다.
+- 실패 알림 메일 생성 시 단순 메시지 외 코드/카테고리/요약 진단을 함께 전달한다.
+- 분류 미확정 실패는 `UNKNOWN_UNCLASSIFIED`와 `classificationReason`을 함께 출력한다.
+- 실패 후처리에서 OCR 힌트(`ocr.hintCode`)와 HTML 스냅샷(메인/프레임)을 수집해 메일 첨부에 전달한다.
+- 첨부 총량이 10MB를 넘으면 부분 첨부 상태를 출력/기록한다.
+
 ## 관측성
 - 단계별 진행 로그와 실패 로그를 콘솔에 출력.
 - DRY RUN 경로는 안내 로그와 스크린샷 경로를 출력.
+- 실패 로그에는 `ocr.status`, `ocr.hintCode`, `html.main.path` 또는 `html.failureReason`을 포함한다.
 
 ## 테스트 설계
 - E2E 간접 검증: `tests/pension720.spec.ts`.
@@ -66,6 +75,7 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `src/pension720/commands/buy.ts#main` | `tests/pension720.spec.ts::DRY RUN: 번호 선택 → 조 선택 → 자동번호 → 선택완료까지 진행` |
 | SCN-002 | `src/pension720/commands/buy.ts#main` | `tests/login.spec.ts::잘못된 비밀번호로 로그인에 실패한다` |
+| SCN-003 | `src/pension720/commands/buy.ts#main` | `tests/pension720.spec.ts::should_emit_ocr_and_html_artifacts_on_failure` |
 
 ## 변경 규칙 (권장)
 - MUST: 종료 코드(`process.exit(1)`) 또는 조기 종료 조건 변경 시 시나리오 매핑 테스트를 갱신한다.

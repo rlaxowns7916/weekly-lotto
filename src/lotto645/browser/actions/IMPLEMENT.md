@@ -40,6 +40,11 @@ Schema-Version: SRTE-DOCS-1
 - 티켓 파싱 실패는 `null` 반환으로 상위 루프에서 건너뛴다.
 - 당첨번호 조회 실패는 스크린샷 저장 후 `null` 반환한다.
 
+## 실패 상세 진단 구현 정책
+- 구매 페이지 이동/요소 대기 실패는 `NETWORK_NAVIGATION_TIMEOUT` 또는 `DOM_SELECTOR_NOT_VISIBLE`로 분류한다.
+- 모달/슬라이더 파싱 실패는 `PARSE_FORMAT_INVALID`로 분류하고 원본 selector 상태를 진단 요약에 포함한다.
+- 후검증 미탐지는 `PURCHASE_VERIFICATION_FAILED`로 고정 분류한다.
+
 ## 관측성
 - 구매/조회 단계별 로그와 파싱 실패 경고 로그를 출력한다.
 - 오류 스크린샷 파일명에 액션 컨텍스트 prefix를 사용한다.

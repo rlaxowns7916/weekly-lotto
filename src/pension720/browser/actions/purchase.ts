@@ -14,6 +14,7 @@ import type { Page } from 'playwright';
 import type { PurchasedPensionTicket, PensionGroup } from '../../domain/ticket.js';
 import { purchaseSelectors, getGroupByDayOfWeek, getDayName } from '../selectors.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
+import { AppError } from '../../../shared/utils/error.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 import { verifyRecentPurchase, checkRecentPurchase } from './check-purchase.js';
 
@@ -112,7 +113,12 @@ export async function purchasePension(
     const verifiedTicket = await verifyRecentPurchase(page, 5);
 
     if (!verifiedTicket) {
-      throw new Error('구매 검증 실패: 5분 이내 구매 내역을 찾을 수 없습니다');
+      throw new AppError({
+        code: 'PURCHASE_VERIFICATION_FAILED',
+        category: 'BUSINESS',
+        retryable: false,
+        message: '구매 검증 실패: 5분 이내 구매 내역을 찾을 수 없습니다',
+      });
     }
 
     console.log('연금복권 구매 검증 완료!');

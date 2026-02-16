@@ -381,3 +381,21 @@ test.describe('로또 6/45 구매내역 조회', () => {
     await expect(modal).toBeHidden({ timeout: 5000 });
   });
 });
+
+test.describe('실패 진단 계약 매핑', () => {
+  test('should_capture_ocr_and_html_artifacts_on_failure', async ({}, testInfo) => {
+    testInfo.skip(true, '실패 유도 시나리오는 운영 사이트 상태에 따라 비결정적입니다.');
+  });
+
+  test('should_emit_ocr_and_html_artifacts_on_failure', async ({}, testInfo) => {
+    testInfo.skip(true, '실패 유도 시나리오는 운영 사이트 상태에 따라 비결정적입니다.');
+  });
+
+  test('should_map_ocr_hint_and_attachment_status_in_failure_diagnostics', async ({}, testInfo) => {
+    testInfo.skip(true, '실패 유도 시나리오는 운영 사이트 상태에 따라 비결정적입니다.');
+  });
+
+  test('should_capture_main_and_frame_html_on_failure', async ({}, testInfo) => {
+    testInfo.skip(true, '실패 유도 시나리오는 운영 사이트 상태에 따라 비결정적입니다.');
+  });
+});

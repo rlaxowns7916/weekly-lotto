@@ -5,6 +5,7 @@ Schema-Version: SRTE-DOCS-1
 - CLI 진입점: `src/lotto645/commands/*.ts`, `src/pension720/commands/*.ts`.
 - 도메인별 브라우저 액션: `src/lotto645/browser/**`, `src/pension720/browser/**`.
 - 공통 인프라: `src/shared/browser/**`, `src/shared/config/index.ts`, `src/shared/services/email.service.ts`, `src/shared/utils/*.ts`.
+- 공통 진단 확장: `src/shared/ocr/**`(실패 스크린샷 OCR, HTML 스냅샷 정규화).
 - 결과 처리: `src/lotto645/services/*.ts`, `src/pension720/services/*.ts`.
 - 검증: `tests/*.spec.ts`, `tests/utils/*.ts`, `playwright.config.ts`.
 
@@ -13,7 +14,8 @@ Schema-Version: SRTE-DOCS-1
 2. 커맨드가 브라우저 세션 생성 후 공통 로그인 액션을 호출한다.
 3. 도메인별 브라우저 액션으로 구매/조회/당첨번호 데이터를 수집한다.
 4. 서비스 계층에서 결과 집계/출력을 수행하고 필요 시 이메일을 전송한다.
-5. 모든 커맨드는 `finally`에서 브라우저 세션을 종료한다.
+5. 실패 경로에서는 스크린샷/HTML(메인+프레임)/OCR 진단을 수집하고 첨부 메일을 구성한다.
+6. 모든 커맨드는 `finally`에서 브라우저 세션을 종료한다.
 
 ## 핵심 알고리즘
 - 구매 선검증/후검증:
@@ -29,11 +31,12 @@ Schema-Version: SRTE-DOCS-1
 - 로또: `PurchasedTicket`, `WinningNumbers`, `WinningRank`.
 - 연금: `PurchasedPensionTicket`, `PensionWinningNumbers`, `PensionWinningRank`.
 - 공통: `Config`, `EmailConfig`, `EmailOptions`, `EmailResult`.
+- 실패 진단: `OcrResult`, `HtmlSnapshotResult`, `FailureArtifacts`.
 
 ## 외부 연동 정책
 - 브라우저 연동: Playwright `page.goto`와 locator 대기 사용.
 - 재시도: `withRetry`(지수 백오프+지터) 사용.
-- timeout: 주요 이동 60초, 요소 대기 10~30초 수준.
+- timeout: 주요 이동 60초, 요소 대기 10~30초, OCR 처리 5초.
 - backoff/circuit breaker/idempotency key: circuit breaker/idempotency key는 구현되지 않았다.
 
 ## 설정
@@ -46,9 +49,19 @@ Schema-Version: SRTE-DOCS-1
 - 브라우저 액션: 실패 시 스크린샷 저장 후 예외 전파 또는 `null` 반환.
 - 설정/메일: 검증 실패는 throw, 메일 전송 실패는 실패 결과로 반환.
 
+## 실패 상세 진단 구현 정책
+- 명령/액션 실패는 공통 구조(`error.code`, `error.category`, `error.message`, `error.retryable`)로 수렴시킨다.
+- `withRetry` 기반 실패는 `retry.attemptCount`, `retry.maxRetries`, `retry.lastErrorMessage`를 함께 기록한다.
+- `UNKNOWN_UNCLASSIFIED`는 규칙 미매칭 예외에만 사용하고 `classificationReason`을 필수 기록한다.
+- 구매 실패 이메일/콘솔 실패 출력은 동일한 에러 코드와 카테고리를 노출한다.
+- 실패 시 스크린샷과 HTML 스냅샷(메인+프레임)을 함께 수집하고 OCR 힌트를 `ocr.hintCode`로 정규화한다.
+- 실패 이메일 첨부 총량은 10MB 상한을 적용하고, 초과 시 `attachment.status=PARTIAL`로 부분 첨부한다.
+
 ## 관측성
 - 콘솔 로그로 단계별 진행/실패 원인을 출력.
 - 스크린샷은 `screenshots/` 아래 저장.
+- HTML 스냅샷은 `artifacts/html-failures/` 아래 저장한다.
+- OCR 결과는 `ocr.status`, `ocr.text`, `ocr.confidence`, `ocr.hintCode`로 기록한다.
 - E2E는 Playwright 리포트, trace, attachment(`*-diagnostics`)를 남긴다.
 
 ## 테스트 설계
@@ -78,6 +91,7 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `src/lotto645/commands/check-result.ts#main` | `tests/lotto645.spec.ts::메인 페이지에서 로또 6/45 당첨번호가 표시된다` |
 | SCN-002 | `src/pension720/commands/check-result.ts#main` | `tests/pension720.spec.ts::메인 페이지에서 연금복권 슬라이더가 표시된다` |
+| SCN-003 | `src/lotto645/commands/buy.ts#main` | `tests/lotto645.spec.ts::should_capture_ocr_and_html_artifacts_on_failure` |
 
 ## 변경 규칙 (권장)
 - MUST: `commands/*` 흐름을 변경하면 `tests/*.spec.ts` 해당 시나리오를 함께 갱신한다.

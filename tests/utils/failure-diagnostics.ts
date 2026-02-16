@@ -43,6 +43,25 @@ async function detectMaintenanceMessage(page: Page): Promise<string | null> {
   return null;
 }
 
+function mapDiagnosticErrorCode(
+  maintenanceMessage: string | null,
+  selectorStates: SelectorProbeResult[]
+): string {
+  if (maintenanceMessage) {
+    return 'NETWORK_NAVIGATION_TIMEOUT';
+  }
+
+  const hasInvisibleSelector = selectorStates.some(
+    (state) => state.count === 0 || state.visible === false
+  );
+
+  if (hasInvisibleSelector) {
+    return 'DOM_SELECTOR_NOT_VISIBLE';
+  }
+
+  return 'UNKNOWN_UNCLASSIFIED';
+}
+
 export async function buildFailureReason(
   page: Page,
   context: string,
@@ -53,6 +72,7 @@ export async function buildFailureReason(
   const isLoginPage = /\/login/i.test(url);
   const maintenanceMessage = await detectMaintenanceMessage(page);
   const selectorStates = await Promise.all(probes.map((probe) => probeSelector(page, probe)));
+  const mappedErrorCode = mapDiagnosticErrorCode(maintenanceMessage, selectorStates);
 
   const selectorSummary = selectorStates
     .map((state) => `${state.label}(count=${state.count},visible=${state.visible})`)
@@ -64,6 +84,7 @@ export async function buildFailureReason(
     `title=${title}`,
     `isLoginPage=${isLoginPage}`,
     `maintenance=${maintenanceMessage ?? 'none'}`,
+    `mappedErrorCode=${mappedErrorCode}`,
     `selectors=[${selectorSummary}]`,
   ].join(' | ');
 }

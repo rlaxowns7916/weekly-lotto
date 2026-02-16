@@ -9,6 +9,7 @@ import type { PensionWinningNumbers } from '../../domain/winning.js';
 import type { PensionGroup } from '../../domain/ticket.js';
 import { digitsToString } from '../../domain/winning.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
+import { AppError, formatErrorSummary } from '../../../shared/utils/error.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
@@ -41,7 +42,12 @@ export async function fetchLatestPensionWinning(page: Page): Promise<PensionWinn
         const allSlides = page.locator('.swiper.wf720 .swiper-slide.wf720-inbox');
         const count = await allSlides.count();
         if (count === 0) {
-          throw new Error('연금복권 당첨 번호 슬라이드를 찾을 수 없습니다');
+          throw new AppError({
+            code: 'DOM_SELECTOR_NOT_VISIBLE',
+            category: 'DOM',
+            retryable: false,
+            message: '연금복권 당첨 번호 슬라이드를 찾을 수 없습니다',
+          });
         }
         return await parsePensionWinningSlide(allSlides.nth(count - 1));
       }
@@ -55,7 +61,7 @@ export async function fetchLatestPensionWinning(page: Page): Promise<PensionWinn
     }
   ).catch(async (error) => {
     await saveErrorScreenshot(page, 'fetch-pension-winning-error');
-    console.error('연금복권 당첨 번호 조회 오류:', error);
+    console.error(`연금복권 당첨 번호 조회 오류: ${formatErrorSummary(error)}`);
     return null;
   });
 }

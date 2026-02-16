@@ -7,6 +7,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 기능 범위/비범위
 - 포함: 사이트 점검 감지 및 조건부 skip, 네트워크 재시도 가드, 구매내역 UI 헬퍼, 실패 진단 문자열 생성/첨부.
+- 포함: 실패 진단과 OCR 힌트 코드 매핑 검증 컨텍스트 생성.
 - 비포함: 비즈니스 로직 검증, 브라우저 컨텍스트 생성 자체, 도메인 값 계산.
 
 ## 공개 인터페이스 계약
@@ -21,13 +22,15 @@ Schema-Version: SRTE-DOCS-1
 - 출력 타입/필드:
   - skip 여부 결정, locator 또는 null, bool 성공/실패 상태.
   - diagnostics 문자열(컨텍스트, URL, title, 점검 여부, selector count/visible).
+  - OCR/HTML 아티팩트 검증용 상태 필드(`mappedErrorCode`, `ocrHintCode`, `attachmentStatus`).
 
 ## 행동 시나리오
 - SCN-001: Given 네트워크 일시 장애, When `attachNetworkGuard`가 `page.goto`를 감싼 상태로 이동, Then `retryCount<=maxRetries+1` and `skipCalled=true` on final failure.
-- SCN-002: Given 핵심 셀렉터 대기 실패, When `waitVisibleWithReason` 실행, Then `diagnosticAttachmentCount>=1` and `errorThrown=true`.
+- SCN-002: Given 핵심 셀렉터 대기 실패, When `waitVisibleWithReason` 실행, Then `diagnosticAttachmentCount>=1` and `errorThrown=true` and `diagnostic contains "selectors="`.
+- SCN-003: Given OCR 텍스트와 diagnostics가 함께 존재, When 매핑 검증 실행, Then `ocrHintCode!=null` and `mappedErrorCode!=null` and `attachmentStatus!=null`.
 
 ## 오류 계약
-- 에러 코드: `E2E_NETWORK_GUARD_FAIL`, `E2E_VISIBLE_WAIT_FAIL`.
+- 에러 코드: `E2E_NETWORK_GUARD_FAIL`, `E2E_VISIBLE_WAIT_FAIL` 및 운영 코드 매핑 후보(`NETWORK_NAVIGATION_TIMEOUT`, `DOM_SELECTOR_NOT_VISIBLE`, `OCR_TIMEOUT`, `UNKNOWN_UNCLASSIFIED`).
 - HTTP status(해당 시): 없음.
 - 재시도 가능 여부: 네트워크 오류는 가능, 셀렉터/DOM 불일치는 기본 불가.
 - 발생 조건: navigation timeout, 연결 오류, locator visible timeout.
@@ -53,6 +56,8 @@ Schema-Version: SRTE-DOCS-1
 - [ ] 점검/네트워크/구매내역/진단 유틸이 테스트 코드에서 재사용 가능하다.
 - [ ] 실패 시 diagnostics attachment가 생성되고 핵심 상태 필드가 포함된다.
 - [ ] 민감 정보 없이 원인 분류에 필요한 정보가 충분히 제공된다.
+- [ ] diagnostics 문자열이 `context`, `maintenance`, `selectors` 필드를 항상 포함한다.
+- [ ] OCR 힌트/첨부 상태 매핑 필드가 diagnostics와 함께 검증 가능하게 제공된다.
 
 ## 오픈 질문
 - 없음

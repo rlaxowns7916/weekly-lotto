@@ -28,10 +28,10 @@ Schema-Version: SRTE-DOCS-1
 
 ## 행동 시나리오
 - SCN-001: Given 유효 자격 증명, When `login` 호출, Then `loginSuccess=true` and (`logoutButtonVisible=true` or `url contains "main"`).
-- SCN-002: Given 구매내역 페이지 접근 지연/오류, When `navigateToPurchaseHistory` 호출, Then `retryAttempted=true` and `exceptionRaised=true` on final failure.
+- SCN-002: Given 구매내역 페이지 접근 지연/오류, When `navigateToPurchaseHistory` 호출, Then `retryAttempted=true` and `error.code=NETWORK_NAVIGATION_TIMEOUT` and `exceptionRaised=true` on final failure.
 
 ## 오류 계약
-- 에러 코드: 없음(명시적 에러 코드 상수 없음).
+- 에러 코드: `AUTH_INVALID_CREDENTIALS`, `NETWORK_NAVIGATION_TIMEOUT`, `DOM_SELECTOR_NOT_VISIBLE`, `UNKNOWN_UNCLASSIFIED`.
 - HTTP status(해당 시): 없음(브라우저 자동화 컨텍스트).
 - 재시도 가능 여부: 가능(`withRetry` 적용).
 - 발생 조건: 계정 누락, 로그인 타임아웃, 구매내역 페이지 필터링 실패.
@@ -57,3 +57,4 @@ Schema-Version: SRTE-DOCS-1
 - [ ] 공통 로그인 함수가 계정 누락/성공/실패를 구분한다.
 - [ ] 구매내역 이동 함수가 상품 코드 필터 적용까지 완료한다.
 - [ ] 실패 시 재시도 및 스크린샷 저장 동작이 유지된다.
+- [ ] 로그인/이동 실패가 구조화된 `error.code`로 분류된다.

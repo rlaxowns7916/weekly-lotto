@@ -6,7 +6,11 @@
  *   HEADED=true npm run pension:check-result        # 브라우저 표시
  */
 
-import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
+import {
+  createBrowserSession,
+  closeBrowserSession,
+  saveErrorScreenshot,
+} from '../../shared/browser/context.js';
 import { login } from '../../shared/browser/actions/login.js';
 import { getTicketsByRound } from '../browser/actions/check-purchase.js';
 import { fetchLatestPensionWinning } from '../browser/actions/fetch-winning.js';
@@ -14,6 +18,12 @@ import { checkTicketsWinning, printWinningResult } from '../services/winning-che
 import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
 import { winningResultTemplate } from '../services/email.templates.js';
 import { isToday, formatDateDot } from '../../shared/utils/date.js';
+import { formatErrorSummary, getErrorDetails } from '../../shared/utils/error.js';
+import {
+  buildFailureArtifacts,
+  captureFailureHtml,
+  extractFailureOcr,
+} from '../../shared/ocr/index.js';
 
 async function main(): Promise<void> {
   console.log('🔍 연금복권 720+ 당첨 확인 시작...\n');
@@ -86,7 +96,22 @@ async function main(): Promise<void> {
     }
 
   } catch (error) {
-    console.error('\n❌ 실패:', error);
+    const details = getErrorDetails(error);
+    const screenshotPath = await saveErrorScreenshot(session.page, 'pension-check-result-command-failure');
+    const htmlSnapshot = await captureFailureHtml(session.page, 'pension-check-result-command-failure');
+    const ocrResult = await extractFailureOcr(screenshotPath ?? 'screenshots/missing.png', {
+      fallbackText: formatErrorSummary(error),
+    });
+    const artifacts = buildFailureArtifacts(details.code, ocrResult, htmlSnapshot, screenshotPath);
+
+    console.error(`\n❌ 실패: ${details.message}`);
+    console.error(`   error.code=${details.code}`);
+    console.error(`   error.category=${details.category}`);
+    console.error(`   error.retryable=${details.retryable}`);
+    console.error(`   ocr.status=${artifacts.ocr.status}`);
+    console.error(`   ocr.hintCode=${artifacts.ocr.hintCode}`);
+    console.error(`   html.status=${artifacts.html.status}`);
+    console.error(`   html.main.path=${artifacts.html.main?.path ?? 'none'}`);
     process.exit(1);
   } finally {
     await closeBrowserSession(session);

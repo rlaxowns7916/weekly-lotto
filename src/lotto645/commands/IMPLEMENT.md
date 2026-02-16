@@ -10,8 +10,9 @@ Schema-Version: SRTE-DOCS-1
 1. 커맨드가 브라우저 세션을 생성한다.
 2. 공통 로그인 액션을 수행한다.
 3. 명령 목적별 하위 액션/서비스를 호출한다.
-4. 실패 시 오류를 출력하고 `process.exit(1)`로 종료한다.
-5. `finally`에서 브라우저 세션을 종료한다.
+4. 실패 시 스크린샷/HTML/OCR 진단을 수집하고 첨부 메일을 구성한다.
+5. 오류를 출력하고 `process.exit(1)`로 종료한다.
+6. `finally`에서 브라우저 세션을 종료한다.
 
 ## 핵심 알고리즘
 - `buy.ts`:
@@ -39,9 +40,17 @@ Schema-Version: SRTE-DOCS-1
 - 각 명령은 최상위 `try/catch`에서 오류를 출력하고 종료 코드 1을 반환한다.
 - 구매 명령 실패 시 실패 템플릿 메일 전송을 추가 시도한다.
 
+## 실패 상세 진단 구현 정책
+- 최상위 catch는 기존 `process.exit(1)` 계약을 유지하면서 구조화 에러(`error.code`, `error.category`)를 로그에 포함한다.
+- 실패 알림 메일 생성 시 단순 메시지 외 코드/카테고리/요약 진단을 함께 전달한다.
+- 분류 미확정 실패는 `UNKNOWN_UNCLASSIFIED`와 `classificationReason`을 함께 출력한다.
+- 실패 후처리에서 OCR 힌트(`ocr.hintCode`)와 HTML 스냅샷(메인/프레임)을 수집해 메일 첨부에 전달한다.
+- 첨부 총량이 10MB를 넘으면 부분 첨부 상태를 출력/기록한다.
+
 ## 관측성
 - 단계 번호 기반 로그(`1. 로그인`, `2. ...`)를 출력한다.
 - 실패 시 에러 객체를 콘솔에 기록한다.
+- 실패 시 `ocr.status`, `ocr.hintCode`, `html.main.path` 또는 `html.failureReason`을 로그에 기록한다.
 
 ## 테스트 설계
 - 간접 검증: `tests/lotto645.spec.ts`에서 구매/조회 플로우를 검증한다.
@@ -66,6 +75,7 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `src/lotto645/commands/buy.ts#main` | `tests/lotto645.spec.ts::모바일 구매 페이지에 접근할 수 있다` |
 | SCN-002 | `src/lotto645/commands/check-result.ts#main` | `tests/lotto645.spec.ts::구매하기 클릭 후 확인 팝업(#popupLayerConfirm)이 표시된다` |
+| SCN-003 | `src/lotto645/commands/buy.ts#main` | `tests/lotto645.spec.ts::should_emit_ocr_and_html_artifacts_on_failure` |
 
 ## 변경 규칙 (권장)
 - MUST: 명령 종료 코드/조기 종료 조건 변경 시 해당 시나리오 테스트를 갱신한다.

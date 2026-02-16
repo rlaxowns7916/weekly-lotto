@@ -6,6 +6,7 @@ Schema-Version: SRTE-DOCS-1
 - `browser/`: 연금복권 셀렉터와 브라우저 액션(`actions/*`) 제공.
 - `domain/`: 연금복권 타입/등수 판정 규칙(`ticket.ts`, `winning.ts`) 제공.
 - `services/`: 당첨 집계/출력(`winning-check.service.ts`)과 이메일 템플릿(`email.templates.ts`) 제공.
+- 실패 후처리: shared OCR/HTML 스냅샷 결과를 수집해 명령 출력/메일 첨부로 전달.
 
 ## 호출 흐름
 1. `package.json` script가 `commands/*.ts`의 `main()`을 실행한다.
@@ -45,9 +46,16 @@ Schema-Version: SRTE-DOCS-1
 - 브라우저 액션: 실패 시 예외 전파 또는 `null` 반환(조회 경로).
 - 이메일: 전송 실패를 실패 결과(`success=false`)로 반환.
 
+## 실패 상세 진단 구현 정책
+- 연금복권 경계는 shared taxonomy를 기본으로 사용하고 필요 시 `PENSION_*` 확장 코드를 추가한다.
+- 명령 실패 출력/메일 템플릿에 `error.code`, `error.category`, `diagnostic.summary`를 포함한다.
+- 구매/파싱/검증 실패를 `PURCHASE_VERIFICATION_FAILED`, `DOM_SELECTOR_NOT_VISIBLE`, `PARSE_FORMAT_INVALID`로 우선 분류한다.
+- 실패 시 OCR 힌트(`ocr.hintCode`)와 HTML 스냅샷(메인/프레임)을 함께 수집해 후속 분석 가능성을 높인다.
+
 ## 관측성
 - 콘솔 로그로 단계(로그인/구매/조회/당첨/이메일) 진행 상태를 기록한다.
 - 실패 시 하위 경계에서 스크린샷(`screenshots/`)을 저장한다.
+- 실패 시 하위 경계에서 HTML 스냅샷(`artifacts/html-failures/`)과 OCR 진단을 기록한다.
 - E2E 테스트에서 trace/screenshot/diagnostics attachment를 수집한다.
 
 ## 테스트 설계
@@ -79,6 +87,7 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `src/pension720/commands/buy.ts#main` | `tests/pension720.spec.ts::구매 페이지(game_mobile)에 접근할 수 있다` |
 | SCN-002 | `src/pension720/commands/check-result.ts#main` | `tests/login.spec.ts::잘못된 비밀번호로 로그인에 실패한다` |
+| SCN-003 | `src/pension720/commands/buy.ts#main` | `tests/pension720.spec.ts::should_capture_ocr_and_html_artifacts_on_failure` |
 
 ## 변경 규칙 (권장)
 - MUST: `commands/*` 흐름을 변경하면 `tests/pension720.spec.ts` 관련 시나리오를 함께 갱신한다.

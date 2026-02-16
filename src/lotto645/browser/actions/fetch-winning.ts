@@ -7,6 +7,7 @@
 import type { Page } from 'playwright';
 import type { WinningNumbers } from '../../domain/winning.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
+import { AppError, formatErrorSummary } from '../../../shared/utils/error.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
@@ -41,7 +42,12 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
         const allSlides = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox');
         const count = await allSlides.count();
         if (count === 0) {
-          throw new Error('당첨 번호 슬라이드를 찾을 수 없습니다');
+          throw new AppError({
+            code: 'DOM_SELECTOR_NOT_VISIBLE',
+            category: 'DOM',
+            retryable: false,
+            message: '당첨 번호 슬라이드를 찾을 수 없습니다',
+          });
         }
         return await parseWinningSlide(allSlides.nth(count - 1));
       }
@@ -55,7 +61,7 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
     }
   ).catch(async (error) => {
     await saveErrorScreenshot(page, 'fetch-winning-error');
-    console.error('당첨 번호 조회 오류:', error);
+    console.error(`당첨 번호 조회 오류: ${formatErrorSummary(error)}`);
     return null;
   });
 }

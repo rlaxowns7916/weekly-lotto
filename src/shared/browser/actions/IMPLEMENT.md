@@ -36,6 +36,11 @@ Schema-Version: SRTE-DOCS-1
 - 로그인 실패는 메시지 분기(자격증명 오류/타임아웃) 후 예외 전파.
 - 구매내역 이동 실패는 스크린샷 저장 후 예외 전파.
 
+## 실패 상세 진단 구현 정책
+- 로그인 실패는 `AUTH_INVALID_CREDENTIALS`와 `NETWORK_NAVIGATION_TIMEOUT`을 우선 분기한다.
+- 구매내역 이동/필터 실패는 `DOM_SELECTOR_NOT_VISIBLE` 또는 `NETWORK_NAVIGATION_TIMEOUT`으로 분류한다.
+- 스크린샷 prefix와 오류 코드를 함께 남겨 상위 커맨드 로그와 상관관계를 유지한다.
+
 ## 관측성
 - 로그인 성공 URL, 재시도, 구매내역 이동 완료 로그를 출력한다.
 - 스크린샷 파일명을 컨텍스트별 prefix로 저장한다.
