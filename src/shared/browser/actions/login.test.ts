@@ -50,25 +50,58 @@ function createPageMock(): {
     waitFor: vi.fn(async () => {
       currentUrl = 'https://www.dhlottery.co.kr/main';
     }),
-    then: undefined,
   };
 
-  const pendingLocator = {
+  const neverVisibleLocator = {
     waitFor: vi.fn(() => new Promise<never>(() => {})),
+    click: vi.fn(async () => {}),
+  };
+
+  const hiddenOverlayLocator = {
+    waitFor: vi.fn(async (options?: { state?: 'visible' | 'hidden' }) => {
+      if (options?.state === 'hidden') {
+        return;
+      }
+
+      throw new Error('not visible');
+    }),
+    click: vi.fn(async () => {}),
   };
 
   const getByRoleMock = vi.fn((role: string, options: { name: string }) => {
     if (role === 'textbox' && options.name === '아이디') return usernameLocator;
     if (role === 'textbox' && options.name === '비밀번호') return passwordLocator;
     if (role === 'button' && options.name === '로그아웃') return logoutLocator;
-    return pendingLocator;
+    return neverVisibleLocator;
   });
 
-  const locatorMock = vi.fn(() => pendingLocator);
+  const locatorMock = vi.fn((selector: string) => {
+    if (selector.includes('아이디 또는 비밀번호를 확인해주세요')) {
+      return neverVisibleLocator;
+    }
+
+    if (selector.includes('비밀번호를 입력하세요')) {
+      return neverVisibleLocator;
+    }
+
+    if (
+      selector === '#waitPage' ||
+      selector === '#isWaitPage' ||
+      selector === '#ajax_loading' ||
+      selector === '.popup-bg.over.loadingOverlay' ||
+      selector === '#isRejectPage, #isNotUse' ||
+      selector === '.close-wait-btn'
+    ) {
+      return hiddenOverlayLocator;
+    }
+
+    return hiddenOverlayLocator;
+  });
 
   const page = {
     goto: gotoMock,
     waitForLoadState: waitForLoadStateMock,
+    waitForTimeout: vi.fn(async () => {}),
     getByRole: getByRoleMock,
     locator: locatorMock,
     url: () => currentUrl,
