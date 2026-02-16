@@ -8,6 +8,7 @@ Schema-Version: SRTE-DOCS-1
 ## 기능 범위/비범위
 - 포함: `login`, `navigateToPurchaseHistory`, `getBarcodeElements`, `LOTTERY_PRODUCTS` 제공.
 - 포함: 네트워크/타임아웃 재시도 및 오류 스크린샷 연계.
+- 포함: 로그인 단계의 대기열/오버레이 간섭 상태 감지 및 해제 대기.
 - 비포함: 브라우저 세션 생성, 도메인별 티켓 파싱, 이메일 전송.
 
 ## 공개 인터페이스 계약
@@ -21,6 +22,8 @@ Schema-Version: SRTE-DOCS-1
 - 유효성 규칙:
   - 로그인은 `LOTTO_USERNAME`, `LOTTO_PASSWORD`가 없으면 실패한다.
   - 로그인은 `https://www.dhlottery.co.kr/` 선접속 후 `https://www.dhlottery.co.kr/login` 이동 순서를 따른다.
+  - 로그인 입력/제출 단계 전후로 `#waitPage`, `#isWaitPage`, `#ajax_loading`, `.popup-bg.over.loadingOverlay`가 hidden 상태여야 다음 단계로 진행한다.
+  - `#isRejectPage` 또는 `#isNotUse`가 visible이면 접속 차단 상태로 실패한다.
   - 구매내역 이동은 최근 1주일 + 상품코드 필터를 적용한다.
 - 출력 타입/필드:
   - `Promise<void>` 액션 함수.
@@ -29,14 +32,14 @@ Schema-Version: SRTE-DOCS-1
 
 ## 행동 시나리오
 - SCN-001: Given 유효 자격 증명, When `login` 호출, Then `visitedUrls[0]="https://www.dhlottery.co.kr/"` and `visitedUrls[1] contains "/login"` and `loginSuccess=true` and (`logoutButtonVisible=true` or `url contains "main"`).
-- SCN-002: Given 홈페이지 또는 로그인 페이지 접근 지연/오류, When `login` 호출, Then `retryAttempted=true` and `error.code=NETWORK_NAVIGATION_TIMEOUT` and `exceptionRaised=true` on final failure.
+- SCN-002: Given 대기열/오버레이 간섭이 지속되어 로그인 단계 진행이 불가한 상태, When `login` 호출, Then `retryAttempted=true` and `error.code=NETWORK_NAVIGATION_TIMEOUT` and `error.retryable=true` and `exceptionRaised=true` on final failure.
 - SCN-003: Given 구매내역 페이지 접근 지연/오류, When `navigateToPurchaseHistory` 호출, Then `retryAttempted=true` and `error.code=NETWORK_NAVIGATION_TIMEOUT` and `exceptionRaised=true` on final failure.
 
 ## 오류 계약
 - 에러 코드: `AUTH_INVALID_CREDENTIALS`, `NETWORK_NAVIGATION_TIMEOUT`, `DOM_SELECTOR_NOT_VISIBLE`, `UNKNOWN_UNCLASSIFIED`.
 - HTTP status(해당 시): 없음(브라우저 자동화 컨텍스트).
-- 재시도 가능 여부: 가능(`withRetry` 적용).
-- 발생 조건: 계정 누락, 홈페이지/로그인 페이지 타임아웃, 구매내역 페이지 필터링 실패.
+- 재시도 가능 여부: 조건부 가능(`AppError.retryable=true`인 케이스만 `withRetry` 재시도).
+- 발생 조건: 계정 누락, 홈페이지/로그인 페이지 타임아웃, 로그인 대기열/오버레이 해제 지연, 사이트 접속 차단 상태, 구매내역 페이지 필터링 실패.
 
 ## 불변식/제약
 - 트랜잭션 경계: 없음.
@@ -48,7 +51,7 @@ Schema-Version: SRTE-DOCS-1
 ## 비기능 요구
 - 성능(SLO): 코드에 별도 수치형 SLO 상수는 없다.
 - 보안 요구: 비밀번호/계정을 로그에 직접 노출하지 않는다.
-- 타임아웃: 주요 이동 60초, 요소 대기 10~30초 범위.
+- 타임아웃: 주요 이동 60초, 요소 대기 10~30초 범위, 로그인 간섭 해제 대기(`home<=10000ms`, `login<=45000ms`, `submit<=30000ms`).
 - 동시성 요구: 단일 `Page` 기준 순차 실행 경로를 따른다.
 
 ## 의존성 계약
@@ -59,6 +62,8 @@ Schema-Version: SRTE-DOCS-1
 ## 수용 기준
 - [ ] 공통 로그인 함수가 계정 누락/성공/실패를 구분한다.
 - [ ] 공통 로그인 함수가 선접속 순서(`https://www.dhlottery.co.kr/` -> `/login`)를 유지한다.
+- [ ] 로그인 단계에서 대기열/오버레이 간섭 상태를 감지하고 해제 대기를 수행한다.
+- [ ] 로그인 접속 차단 상태를 `NETWORK_NAVIGATION_TIMEOUT` + `retryable=false`로 분류한다.
 - [ ] 구매내역 이동 함수가 상품 코드 필터 적용까지 완료한다.
 - [ ] 실패 시 재시도 및 스크린샷 저장 동작이 유지된다.
 - [ ] 로그인/이동 실패가 구조화된 `error.code`로 분류된다.
