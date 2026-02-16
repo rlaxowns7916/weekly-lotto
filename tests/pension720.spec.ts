@@ -17,6 +17,7 @@ import {
 
 // URL 상수
 const MAIN_URL = 'https://www.dhlottery.co.kr/main';
+const HOME_URL = 'https://www.dhlottery.co.kr/';
 const LOGIN_URL = 'https://www.dhlottery.co.kr/login';
 const PURCHASE_URL = 'https://el.dhlottery.co.kr/game_mobile/pension720/game.jsp';
 const PURCHASE_HISTORY_URL = 'https://www.dhlottery.co.kr/mypage/mylotteryledger';
@@ -42,6 +43,8 @@ async function performLogin(page: Page, testInfo: TestInfo): Promise<boolean> {
     return false;
   }
 
+  await page.goto(HOME_URL, { timeout: 60000 });
+  await page.waitForLoadState('domcontentloaded');
   await page.goto(LOGIN_URL, { timeout: 60000 });
   await page.waitForLoadState('domcontentloaded');
   await skipIfSiteMaintenance(page, testInfo, '로그인 페이지');

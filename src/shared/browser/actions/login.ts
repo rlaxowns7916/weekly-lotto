@@ -33,7 +33,9 @@ export async function login(page: Page): Promise<void> {
 
   await withRetry(
     async () => {
-      // 로그인 페이지로 직접 이동
+      await page.goto(loginSelectors.homeUrl, { timeout: 60000 });
+      await page.waitForLoadState('domcontentloaded');
+
       await page.goto(loginSelectors.url, { timeout: 60000 });
       await page.waitForLoadState('domcontentloaded');
 

@@ -2,7 +2,7 @@
 Schema-Version: SRTE-DOCS-1
 
 ## 모듈 분해
-- `login.spec.ts`: 로그인 성공/실패와 입력 검증을 담당한다.
+- `login.spec.ts`: 홈페이지 선접속 후 로그인 페이지 진입, 로그인 성공/실패와 입력 검증을 담당한다.
 - `lotto645.spec.ts`: 로또 메인/모바일 구매/구매내역 흐름을 검증한다.
 - `pension720.spec.ts`: 연금복권 메인/구매/구매내역 흐름을 검증한다.
 - `utils/failure-diagnostics.ts`: 실패 원인 문자열 생성, OCR 힌트 매핑, HTML 아티팩트 검증 컨텍스트 기록을 담당한다.
@@ -11,6 +11,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 호출 흐름
 1. suite `beforeEach`에서 네트워크 가드 설치 및 선행 페이지 진입.
+   - 로그인 suite는 `https://www.dhlottery.co.kr/`를 먼저 방문한 뒤 `/login`으로 이동한다.
 2. 로그인 필요 시 `performLogin`으로 인증 상태를 확보.
 3. 시나리오 본문에서 페이지 이동/클릭/검증 수행.
 4. 핵심 locator 대기는 `waitVisibleWithReason`로 감싸 실패 시 diagnostics를 첨부.
@@ -28,6 +29,9 @@ Schema-Version: SRTE-DOCS-1
 - OCR/HTML 아티팩트 검증:
   - 실패 후처리 결과(`ocr.status`, `html.main.path`, `attachment.status`)를 assertion 대상으로 수집.
   - 첨부 용량 초과 시 `attachment.status=PARTIAL` 경로를 검증.
+- 로그인 준비 알고리즘:
+  - `beforeEach`에서 홈페이지 선접속 호출.
+  - 동일 `Page`에서 로그인 페이지로 전환 후 폼 가시성 검증.
 
 ## 데이터 모델
 - 테스트 데이터는 환경 변수 기반 자격 증명과 상수 URL/셀렉터를 사용한다.
@@ -65,7 +69,7 @@ Schema-Version: SRTE-DOCS-1
 - 경계: E2E 중심(실 브라우저 상호작용), 단위 테스트는 `src/**/*.test.ts`로 분리.
 - 필수 케이스: 로그인 성공/실패, 로또/연금 메인 정보 추출, 구매 화면 핵심 버튼/팝업 검증.
 - 시나리오-테스트 매핑 규칙:
-  - SCN-001(정상 흐름) -> 각 `...에 접근할 수 있다` 및 `...이 표시된다` 테스트.
+  - SCN-001(정상 흐름) -> `홈페이지 선접속 후 로그인 페이지가 로드된다` 포함 각 `...에 접근할 수 있다` 및 `...이 표시된다` 테스트.
   - SCN-002(실패 진단) -> `openLottoPurchasePage` 및 `waitVisibleWithReason` 경유 실패 테스트.
 
 ## 모듈 인벤토리 (권장)
@@ -87,12 +91,13 @@ Schema-Version: SRTE-DOCS-1
 ## 시나리오 추적성 (권장)
 | SCN | 구현 파일#심볼 | 테스트명 |
 |---|---|---|
-| SCN-001 | `tests/lotto645.spec.ts#openLottoPurchasePage` | `tests/lotto645.spec.ts::모바일 구매 페이지에 접근할 수 있다` |
+| SCN-001 | `tests/login.spec.ts#beforeEach` | `tests/login.spec.ts::홈페이지 선접속 후 로그인 페이지가 로드된다` |
 | SCN-002 | `tests/utils/failure-diagnostics.ts#waitVisibleWithReason` | `tests/lotto645.spec.ts::"자동 1매 추가" 버튼(button.btn-green02)이 표시된다` |
 | SCN-003 | `tests/utils/failure-diagnostics.ts#buildFailureReason` | `tests/lotto645.spec.ts::should_capture_ocr_and_html_artifacts_on_failure` |
 
 ## 변경 규칙 (권장)
 - MUST: 핵심 셀렉터/구매 경로를 변경하면 `tests/lotto645.spec.ts`, `tests/pension720.spec.ts`를 함께 갱신한다.
+- MUST: 로그인 준비 순서(`홈페이지 -> /login`)를 변경하면 `tests/login.spec.ts`와 shared login 문서를 함께 갱신한다.
 - MUST: diagnostics 포맷을 변경하면 `tests/utils/failure-diagnostics.ts` 호출부 attachment 컨텍스트를 함께 맞춘다.
 - MUST NOT: 실패 원인 추적을 위해 필요한 diagnostics attachment 생성을 제거하지 않는다.
 - 함께 수정할 테스트 목록: `tests/login.spec.ts`, `tests/lotto645.spec.ts`, `tests/pension720.spec.ts`.

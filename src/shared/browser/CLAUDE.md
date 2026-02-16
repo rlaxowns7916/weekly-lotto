@@ -9,7 +9,7 @@ Schema-Version: SRTE-DOCS-1
 - 포함: 브라우저 세션 생성/종료(`createBrowserSession`, `closeBrowserSession`).
 - 포함: 에러 스크린샷 저장(`saveErrorScreenshot`).
 - 포함: 실패 시점 HTML 스냅샷 저장(메인/프레임).
-- 포함: 로그인 셀렉터 상수 제공.
+- 포함: 로그인 셀렉터/URL 상수 제공(홈페이지 warm-up URL + 로그인 페이지 URL).
 - 비포함: 로그인 절차 실행, 구매내역 탐색, 도메인별 액션 실행.
 
 ## 공개 인터페이스 계약
@@ -27,12 +27,13 @@ Schema-Version: SRTE-DOCS-1
   - `BrowserSession`(`browser`, `context`, `page`).
   - `string | null` 스크린샷 경로.
   - HTML 스냅샷 결과(`html.main.path`, `html.frames[]`, `html.status`).
-  - `loginSelectors`.
+  - `loginSelectors`(`homeUrl`, `url`, 입력 role/name).
 
 ## 행동 시나리오
 - SCN-001: Given 실행 옵션, When 브라우저 세션 생성 호출, Then `session.browser!=null` and `session.page!=null`.
 - SCN-002: Given 페이지 오류 상태, When 스크린샷 저장 호출, Then `screenshotPath!=null` or `returnValue=null`.
 - SCN-003: Given 실패 페이지에 iframe이 존재, When HTML 스냅샷 저장 호출, Then `html.main.path!=null` and `html.frames.length>=0` and `html.status!=null`.
+- SCN-004: Given 로그인 셀렉터 상수 사용 경로, When 로그인 준비 단계가 실행, Then `loginSelectors.homeUrl="https://www.dhlottery.co.kr/"` and `loginSelectors.url contains "/login"`.
 
 ## 오류 계약
 - 에러 코드: 없음(이 경계는 스냅샷 실패를 상태 객체/`null`로 반환하고 코드 부여는 상위 경계에서 수행한다).
@@ -62,3 +63,4 @@ Schema-Version: SRTE-DOCS-1
 - [ ] 모바일 에뮬레이션 설정이 코드와 문서에서 일치한다.
 - [ ] 스크린샷 저장 실패 시 `null` 반환 계약이 유지된다.
 - [ ] 실패 시 HTML 스냅샷(메인/프레임) 경로 또는 실패 사유가 기록된다.
+- [ ] 로그인 셀렉터 상수에 선접속 URL(`https://www.dhlottery.co.kr/`)과 로그인 URL(`/login`) 계약이 반영된다.

@@ -23,6 +23,7 @@ Schema-Version: SRTE-DOCS-1
 - 유효성 규칙:
   - 설정 로딩은 `configSchema`/`emailConfigSchema`를 따른다.
   - 이메일 설정은 `LOTTO_EMAIL_SMTP_HOST`와 `LOTTO_EMAIL_SMTP_PORT`가 있을 때만 구성된다.
+  - 공통 로그인 경로는 `https://www.dhlottery.co.kr/` 선접속 후 `/login` 이동 순서를 따른다.
 - 출력 타입/필드:
   - 브라우저 세션(`browser`, `context`, `page`).
   - 검증된 설정 객체(`Config`), 메일 전송 결과(`EmailResult`).
@@ -33,6 +34,7 @@ Schema-Version: SRTE-DOCS-1
 - SCN-001: Given 유효 환경 변수와 정상 브라우저 상태, When shared API를 호출, Then `configLoaded=true` and `sessionCreated=true`.
 - SCN-002: Given 설정 누락 또는 브라우저/SMTP 오류, When shared API가 실패를 처리, Then `error.code!=null` and (`errorThrown=true` or `result.success=false`).
 - SCN-003: Given 실패 시점 스크린샷 경로가 존재, When OCR/HTML 후처리를 수행, Then `ocr.status!=null` and (`html.main.path!=null` or `html.status=FAILED`).
+- SCN-004: Given 로그인 필요 시나리오, When 공통 로그인 액션을 수행, Then `visitedUrls[0]="https://www.dhlottery.co.kr/"` and `visitedUrls[1] contains "/login"`.
 
 ## 오류 계약
 - 에러 코드: 공통 분류 코드를 사용한다(`AUTH_INVALID_CREDENTIALS`, `NETWORK_NAVIGATION_TIMEOUT`, `DOM_SELECTOR_NOT_VISIBLE`, `PARSE_FORMAT_INVALID`, `PURCHASE_VERIFICATION_FAILED`, `EMAIL_SEND_FAILED`, `OCR_ENGINE_UNAVAILABLE`, `OCR_TIMEOUT`, `OCR_TEXT_NOT_FOUND`, `OCR_EXTRACTION_FAILED`, `UNKNOWN_UNCLASSIFIED`).
@@ -45,6 +47,7 @@ Schema-Version: SRTE-DOCS-1
 - 정합성 규칙: `getConfig()`는 단일 프로세스에서 캐시된 설정 객체를 재사용한다.
 - 멱등성 규칙: 동일 입력의 순수 유틸 함수는 동일 결과를 반환한다(시간 의존 함수 제외).
 - 순서 보장 규칙: 브라우저 세션 종료 시 `context`와 `browser`를 순차 종료한다.
+  - 로그인 액션은 `홈페이지 선접속 -> 로그인 페이지 이동 -> 자격증명 제출` 순서를 보장한다.
 
 ## 비기능 요구
 - 성능(SLO): 수치형 SLO 상수는 코드에 정의되어 있지 않다.
@@ -64,6 +67,7 @@ Schema-Version: SRTE-DOCS-1
 - [ ] 공통 유틸이 도메인 경계에서 재사용 가능하다.
 - [ ] shared 실패 결과가 `error.code`, `error.category`, `error.retryable`를 포함한다.
 - [ ] shared 실패 결과가 `ocr.status` 및 HTML 스냅샷 경로(또는 실패 사유)를 포함한다.
+- [ ] shared 로그인 액션이 선접속 순서(`https://www.dhlottery.co.kr/` -> `/login`)를 유지한다.
 
 ## 오픈 질문
 - 없음

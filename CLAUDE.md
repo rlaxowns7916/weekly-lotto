@@ -21,12 +21,13 @@ Schema-Version: SRTE-DOCS-1
   - 이메일 전송은 `LOTTO_EMAIL_*`가 모두 설정된 경우에만 활성화.
 - 유효성 규칙:
   - 설정 유효성은 `src/shared/config/index.ts`의 Zod 스키마를 따른다.
+  - 공통 로그인은 `https://www.dhlottery.co.kr/` 선접속 후 `https://www.dhlottery.co.kr/login` 이동 순서를 따른다.
   - `DRY_RUN=false`일 때만 실제 구매가 진행된다.
 - 출력 타입/필드:
   - 콘솔 로그, 스크린샷, HTML 스냅샷(메인+프레임), OCR 진단 결과, 티켓/당첨 결과 데이터, 선택적 이메일 전송 결과, 테스트 아티팩트.
 
 ## 행동 시나리오
-- SCN-001: Given 유효 환경 변수와 외부 서비스 정상 상태, When `lotto:*`/`pension:*` 명령 실행, Then `processExitCode=0` and `output contains "완료"`.
+- SCN-001: Given 유효 환경 변수와 외부 서비스 정상 상태, When `lotto:*`/`pension:*` 명령 실행, Then `visitedUrls[0]="https://www.dhlottery.co.kr/"` and `visitedUrls[1] contains "/login"` and `processExitCode=0` and `output contains "완료"`.
 - SCN-002: Given 로그인/구매/메일 전송 중 오류, When 각 커맨드가 예외를 처리, Then `processExitCode=1` or `earlyReturn=true` and `error.code!=null` and `output contains "실패"`.
 - SCN-003: Given 커맨드 실패 시점 페이지 컨텍스트가 유효, When 실패 후처리 실행, Then `screenshotPath!=null` and `html.main.path!=null` and `ocr.status!=null`.
 
@@ -41,6 +42,7 @@ Schema-Version: SRTE-DOCS-1
 - 정합성 규칙: 공통 설정 파싱 결과는 단일 `getConfig()` 캐시를 통해 일관되게 재사용한다.
 - 멱등성 규칙: `DRY_RUN=true` 시 구매 커맨드는 결제 상태를 변경하지 않는다.
 - 순서 보장 규칙: 명령 실행은 로그인 선행 후 구매/조회/당첨확인 단계를 따른다.
+  - 로그인 단계는 `홈페이지 선접속 -> 로그인 페이지 이동 -> 자격증명 제출` 순서를 따른다.
 
 ## 비기능 요구
 - 성능(SLO): 코드/설정에 수치형 SLO 정의가 없다.
@@ -56,6 +58,7 @@ Schema-Version: SRTE-DOCS-1
 ## 수용 기준
 - [ ] 루트 스크립트로 로또/연금복권 구매/조회/당첨확인 명령을 실행할 수 있다.
 - [ ] shared 설정/브라우저/이메일 의존 경로가 문서와 코드에서 일치한다.
+- [ ] 공통 로그인 선행 순서(`https://www.dhlottery.co.kr/` -> `/login`)가 도메인 명령에서 일관되게 적용된다.
 - [ ] CI 및 스케줄 워크플로우가 문서된 계약과 모순되지 않는다.
 - [ ] 실패 출력/알림에 `error.code`와 `error.category`가 포함된다.
 - [ ] 실패 경로에서 스크린샷/HTML/OCR 진단이 수집되고, 실패 메일 첨부 정책(10MB 상한, 초과 시 부분 첨부)이 유지된다.

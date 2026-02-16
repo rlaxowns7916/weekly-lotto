@@ -8,6 +8,7 @@
 import { test, expect } from '@playwright/test';
 import { attachNetworkGuard, skipIfSiteMaintenance } from './utils/site-availability.js';
 
+const HOME_URL = 'https://www.dhlottery.co.kr/';
 // 로그인 페이지 URL
 const LOGIN_URL = 'https://www.dhlottery.co.kr/login';
 
@@ -19,16 +20,32 @@ const getCredentials = () => ({
 
 test.describe('로그인 테스트', () => {
   test.describe.configure({ mode: 'serial' });
+  let beforeEachNavigations: string[] = [];
 
   test.beforeEach(async ({ page }, testInfo) => {
     attachNetworkGuard(page, testInfo);
-    // 로그인 페이지로 이동
+    beforeEachNavigations = [];
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame()) {
+        beforeEachNavigations.push(frame.url());
+      }
+    });
+
+    await page.goto(HOME_URL, { timeout: 60000 });
+    await page.waitForLoadState('domcontentloaded');
     await page.goto(LOGIN_URL, { timeout: 60000 });
     await page.waitForLoadState('networkidle');
     await skipIfSiteMaintenance(page, testInfo, '로그인 페이지');
   });
 
-  test('로그인 페이지가 정상적으로 로드된다', async ({ page }) => {
+  test('홈페이지 선접속 후 로그인 페이지가 로드된다', async ({ page }) => {
+    expect(page.url()).toContain('/login');
+
+    const homeIndex = beforeEachNavigations.findIndex((url) => url.startsWith(HOME_URL));
+    const loginIndex = beforeEachNavigations.findIndex((url) => url.includes('/login'));
+    expect(homeIndex).toBeGreaterThanOrEqual(0);
+    expect(loginIndex).toBeGreaterThan(homeIndex);
+
     // 아이디 입력 필드 확인
     const usernameInput = page.getByRole('textbox', { name: '아이디' });
     await expect(usernameInput).toBeVisible();

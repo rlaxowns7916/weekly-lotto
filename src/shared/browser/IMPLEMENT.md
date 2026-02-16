@@ -3,7 +3,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 모듈 분해
 - `context.ts`: 브라우저 실행/종료, 모바일 컨텍스트 설정, 스크린샷/HTML 스냅샷 저장.
-- `selectors.ts`: 로그인 URL/role 기반 입력 셀렉터 상수.
+- `selectors.ts`: 로그인 선접속 URL/로그인 URL/role 기반 입력 셀렉터 상수.
 - `actions/`: 로그인/구매내역 이동 공통 액션.
 
 ## 호출 흐름
@@ -54,20 +54,21 @@ Schema-Version: SRTE-DOCS-1
 | 모듈 | 파일 | 역할 |
 |---|---|---|
 | browser context | `context.ts` | 세션 생성/종료, 스크린샷 저장 |
-| selector constants | `selectors.ts` | 로그인 URL/입력 셀렉터 상수 |
+| selector constants | `selectors.ts` | 로그인 선접속 URL + 로그인 URL + 입력 셀렉터 상수 |
 
 ## 파일 계약 (핵심 파일 상세, 권장)
 | 파일 | 외부 노출 심볼 | 입력 | 출력 | 오류/제약 |
 |---|---|---|---|---|
 | `context.ts` | `createBrowserSession`, `closeBrowserSession`, `saveErrorScreenshot`, `saveFailureHtmlSnapshot` | `BrowserOptions`, `BrowserSession`, `Page` | 세션 객체, 경로 문자열 또는 `null`, HTML 스냅샷 결과 | 생성/종료 실패 시 예외 전파 |
-| `selectors.ts` | `loginSelectors` | 없음 | 셀렉터 상수 객체 | DOM 계약 변경 시 수정 필요 |
+| `selectors.ts` | `loginSelectors` | 없음 | `homeUrl`/`url`/입력 셀렉터 상수 객체 | URL 또는 DOM 계약 변경 시 수정 필요 |
 
 ## 시나리오 추적성 (권장)
 | SCN | 구현 파일#심볼 | 테스트명 |
 |---|---|---|
-| SCN-001 | `src/shared/browser/context.ts#createBrowserSession` | `tests/login.spec.ts::로그인 페이지가 정상적으로 로드된다` |
+| SCN-001 | `src/shared/browser/context.ts#createBrowserSession` | `tests/login.spec.ts::홈페이지 선접속 후 로그인 페이지가 로드된다` |
 | SCN-002 | `src/shared/browser/context.ts#saveErrorScreenshot` | `tests/lotto645.spec.ts::구매하기 클릭 후 확인 팝업(#popupLayerConfirm)이 표시된다` |
 | SCN-003 | `src/shared/browser/context.ts#saveFailureHtmlSnapshot` | `tests/utils/failure-diagnostics.ts::should_capture_main_and_frame_html_on_failure` |
+| SCN-004 | `src/shared/browser/selectors.ts#loginSelectors` | `tests/login.spec.ts::홈페이지 선접속 후 로그인 페이지가 로드된다` |
 
 ## 변경 규칙 (권장)
 - MUST: 모바일 컨텍스트 기본값(userAgent/viewport/locale/timezone) 변경 시 로그인/구매 E2E를 함께 검증한다.
