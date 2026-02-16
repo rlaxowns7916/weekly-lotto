@@ -1,0 +1,26 @@
+{
+  "installations": {
+    "my-marketplace": {
+      "source": "https://github.com/rlaxowns7916/my-marketplace",
+      "plugins": [
+        "spec-driven-roundtrip-engine"
+      ],
+      "skills": [
+        "srte-boundary-inspect",
+        "srte-drift-check"
+      ],
+      "commands": [
+        "srte-compile",
+        "srte-decompile",
+        "srte-plan",
+        "srte-verify"
+      ],
+      "agents": [],
+      "placedDirs": [
+        ".opencode/spec-driven-roundtrip-engine"
+      ],
+      "installedAt": "2026-02-16T07:18:06.844Z",
+      "lastUpdated": "2026-02-16T07:58:50.823Z"
+    }
+  }
+}

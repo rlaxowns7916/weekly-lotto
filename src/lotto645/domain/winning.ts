@@ -94,7 +94,8 @@ export function checkWinning(
  * 두 번호 배열에서 일치하는 개수 계산
  */
 function countMatches(purchased: number[], winning: number[]): number {
-  return purchased.filter((n) => winning.includes(n)).length;
+  const uniquePurchased = new Set(purchased);
+  return Array.from(uniquePurchased).filter((n) => winning.includes(n)).length;
 }
 
 /**
@@ -104,5 +105,6 @@ export function getMatchingNumbers(
   purchased: number[],
   winning: number[]
 ): number[] {
-  return purchased.filter((n) => winning.includes(n));
+  const uniquePurchased = new Set(purchased);
+  return Array.from(uniquePurchased).filter((n) => winning.includes(n));
 }

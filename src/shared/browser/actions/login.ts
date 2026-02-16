@@ -9,6 +9,7 @@ import { loginSelectors } from '../selectors.js';
 import { getConfig } from '../../config/index.js';
 import { saveErrorScreenshot } from '../context.js';
 import { withRetry } from '../../utils/retry.js';
+import { AppError, toAppError } from '../../utils/error.js';
 
 /**
  * 동행복권 사이트 로그인
@@ -20,7 +21,12 @@ export async function login(page: Page): Promise<void> {
   const config = getConfig();
 
   if (!config.username || !config.password) {
-    throw new Error('로그인 실패: LOTTO_USERNAME, LOTTO_PASSWORD 환경변수가 필요합니다');
+    throw new AppError({
+      code: 'AUTH_INVALID_CREDENTIALS',
+      category: 'AUTH',
+      retryable: false,
+      message: '로그인 실패: LOTTO_USERNAME, LOTTO_PASSWORD 환경변수가 필요합니다',
+    });
   }
 
   const { username, password } = config;
@@ -70,7 +76,12 @@ export async function login(page: Page): Promise<void> {
 
       if (result === 'wrong_credentials') {
         // 진짜 로그인 실패 - 재시도 의미 없음
-        throw new Error('로그인 실패: 아이디 또는 비밀번호가 틀렸습니다 (재시도 안함)');
+        throw new AppError({
+          code: 'AUTH_INVALID_CREDENTIALS',
+          category: 'AUTH',
+          retryable: false,
+          message: '로그인 실패: 아이디 또는 비밀번호가 틀렸습니다 (재시도 안함)',
+        });
       }
 
       // 타임아웃 - URL로 재확인
@@ -83,7 +94,12 @@ export async function login(page: Page): Promise<void> {
       }
 
       // 사이트 느림으로 인한 실패 - 재시도 가능
-      throw new Error('로그인 타임아웃: 사이트 응답이 느립니다');
+      throw new AppError({
+        code: 'NETWORK_NAVIGATION_TIMEOUT',
+        category: 'NETWORK',
+        retryable: true,
+        message: '로그인 타임아웃: 사이트 응답이 느립니다',
+      });
     },
     {
       maxRetries: 3,
@@ -99,6 +115,6 @@ export async function login(page: Page): Promise<void> {
     }
   ).catch(async (error) => {
     await saveErrorScreenshot(page, 'login-error');
-    throw error;
+    throw toAppError(error);
   });
 }

@@ -7,16 +7,27 @@
  *   DRY_RUN=false npm run buy      # 실제 구매 진행
  */
 
-import { createBrowserSession, closeBrowserSession } from '../../shared/browser/context.js';
+import {
+  createBrowserSession,
+  closeBrowserSession,
+  saveErrorScreenshot,
+} from '../../shared/browser/context.js';
 import { login } from '../../shared/browser/actions/login.js';
 import { purchaseLotto } from '../browser/actions/purchase.js';
 import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
+import { formatErrorSummary, getErrorDetails } from '../../shared/utils/error.js';
+import {
+  buildFailureArtifacts,
+  captureFailureHtml,
+  extractFailureOcr,
+} from '../../shared/ocr/index.js';
 import {
   purchaseSuccessTemplate,
   purchaseFailureTemplate,
 } from '../services/email.templates.js';
+import { pathToFileURL } from 'node:url';
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   // DRY_RUN 환경변수 확인 (기본값: true)
   const dryRun = process.env.DRY_RUN !== 'false';
 
@@ -69,13 +80,48 @@ async function main(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('\n❌ 실패:', error);
+    const details = getErrorDetails(error);
+    const screenshotPath = await saveErrorScreenshot(session.page, 'lotto-buy-command-failure');
+    const htmlSnapshot = await captureFailureHtml(session.page, 'lotto-buy-command-failure');
+    const ocrResult = await extractFailureOcr(screenshotPath ?? 'screenshots/missing.png', {
+      fallbackText: formatErrorSummary(error),
+    });
+    const artifacts = buildFailureArtifacts(details.code, ocrResult, htmlSnapshot, screenshotPath);
+
+    console.error(`\n❌ 실패: ${details.message}`);
+    console.error(`   error.code=${details.code}`);
+    console.error(`   error.category=${details.category}`);
+    console.error(`   error.retryable=${details.retryable}`);
+    console.error(`   ocr.status=${artifacts.ocr.status}`);
+    console.error(`   ocr.hintCode=${artifacts.ocr.hintCode}`);
+    console.error(`   html.status=${artifacts.html.status}`);
+    console.error(`   html.main.path=${artifacts.html.main?.path ?? 'none'}`);
+    if (details.retry) {
+      console.error(
+        `   retry.attemptCount=${details.retry.attemptCount}, retry.maxRetries=${details.retry.maxRetries}`
+      );
+      console.error(`   retry.lastErrorMessage=${details.retry.lastErrorMessage}`);
+    }
+    if (details.classificationReason) {
+      console.error(`   classificationReason=${details.classificationReason}`);
+    }
 
     // 실패 알림 이메일 전송
     if (hasEmailConfig()) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const emailTemplate = purchaseFailureTemplate(errorMessage);
-      await sendEmail(emailTemplate).catch((e) => {
+      const artifactSummary = [
+        `ocr.status=${artifacts.ocr.status}`,
+        `ocr.hintCode=${artifacts.ocr.hintCode}`,
+        `html.status=${artifacts.html.status}`,
+        `html.main.path=${artifacts.html.main?.path ?? 'none'}`,
+      ].join(' | ');
+
+      const emailTemplate = purchaseFailureTemplate(
+        `${formatErrorSummary(error)} | ${artifactSummary}`
+      );
+      await sendEmail({
+        ...emailTemplate,
+        attachments: artifacts.attachmentCandidates,
+      }).catch((e) => {
         console.error('이메일 전송 중 오류:', e);
       });
     }
@@ -88,4 +134,9 @@ async function main(): Promise<void> {
   console.log('\n🎉 완료!');
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error('\n❌ 치명적 실패:', error);
+    process.exit(1);
+  });
+}

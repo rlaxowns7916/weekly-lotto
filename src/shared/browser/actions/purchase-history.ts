@@ -7,6 +7,7 @@
 
 import type { Page } from 'playwright';
 import { saveErrorScreenshot } from '../context.js';
+import { getErrorMessage, toAppError } from '../../utils/error.js';
 import { withRetry } from '../../utils/retry.js';
 
 /**
@@ -100,7 +101,18 @@ export async function navigateToPurchaseHistory(
     }
   ).catch(async (error) => {
     await saveErrorScreenshot(page, `${screenshotPrefix}-nav-error`);
-    throw error;
+    const message = getErrorMessage(error).toLowerCase();
+    const isNetworkError =
+      message.includes('timeout') ||
+      message.includes('network') ||
+      message.includes('connection') ||
+      message.includes('net::');
+
+    throw toAppError(error, {
+      code: isNetworkError ? 'NETWORK_NAVIGATION_TIMEOUT' : 'DOM_SELECTOR_NOT_VISIBLE',
+      category: isNetworkError ? 'NETWORK' : 'DOM',
+      retryable: isNetworkError,
+    });
   });
 }
 

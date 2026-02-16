@@ -1,174 +1,67 @@
-# 코딩 에이전트 가이드라인 (Node.js + TypeScript + Playwright)
-이 문서는 이 리포지토리에서 **코딩 에이전트**가 작업할 때 따라야 할 공통 규칙을 정의한다.
+# weekly-lotto
+Schema-Version: SRTE-DOCS-1
 
----
+## 목적
+이 경계는 동행복권 모바일 웹 자동화 프로젝트의 루트 계약을 정의한다.
+로또 6/45와 연금복권 720+의 구매/조회/당첨확인 CLI 실행, 공통 설정, CI 및 스케줄 운영의 공통 기준을 보장한다.
 
-## 1. 프로젝트 개요
-- 이 리포지토리는 **Node.js + TypeScript + Playwright** 기반 로또 자동화 프로젝트이다.
-- 동행복권 **모바일 웹** 사이트에서 로또 구매 및 당첨 확인을 자동화한다.
-- 브라우저는 **iPhone (iOS Safari)** 환경으로 에뮬레이션된다.
-- GitHub Actions를 통해 스케줄 실행된다.
+## 기능 범위/비범위
+- 포함: `npm run lotto:*`, `npm run pension:*` 스크립트 기반 실행 경로 제공.
+- 포함: shared 경계 재사용을 통한 로그인/브라우저 세션/이메일 전송 공통화.
+- 포함: GitHub Actions 기반 정기 실행 및 CI(린트/타입체크/E2E) 워크플로우 제공.
+- 비포함: 동행복권 사이트 내부 정책/DOM 안정성 자체 보장.
+- 비포함: SMTP 서버 가용성 및 외부 네트워크 품질 보장.
 
-### 주요 커맨드
-- `npm run lotto:buy` - 로또 구매 (DRY_RUN=false로 실제 구매)
-- `npm run lotto:check` - 최근 1주일 구매 내역 조회
-- `npm run lotto:check-result` - 당첨 확인 및 이메일 전송
-- `npm run pension:buy` - 연금복권 구매
-- `npm run pension:check` - 연금복권 구매 내역 조회
-- `npm run pension:check-result` - 연금복권 당첨 확인
+## 공개 인터페이스 계약
+- 입력 타입/필드:
+  - 환경 변수: `LOTTO_USERNAME`, `LOTTO_PASSWORD`, `DRY_RUN`, `HEADED`, `CI`, `PENSION_GROUP`, `LOTTO_EMAIL_*`.
+  - 실행 인터페이스: `package.json` scripts, GitHub Actions `schedule`/`workflow_dispatch`.
+- 필수/옵션:
+  - 로그인 필요 시나리오에서 계정 변수는 필수.
+  - 이메일 전송은 `LOTTO_EMAIL_*`가 모두 설정된 경우에만 활성화.
+- 유효성 규칙:
+  - 설정 유효성은 `src/shared/config/index.ts`의 Zod 스키마를 따른다.
+  - `DRY_RUN=false`일 때만 실제 구매가 진행된다.
+- 출력 타입/필드:
+  - 콘솔 로그, 스크린샷, HTML 스냅샷(메인+프레임), OCR 진단 결과, 티켓/당첨 결과 데이터, 선택적 이메일 전송 결과, 테스트 아티팩트.
 
----
+## 행동 시나리오
+- SCN-001: Given 유효 환경 변수와 외부 서비스 정상 상태, When `lotto:*`/`pension:*` 명령 실행, Then `processExitCode=0` and `output contains "완료"`.
+- SCN-002: Given 로그인/구매/메일 전송 중 오류, When 각 커맨드가 예외를 처리, Then `processExitCode=1` or `earlyReturn=true` and `error.code!=null` and `output contains "실패"`.
+- SCN-003: Given 커맨드 실패 시점 페이지 컨텍스트가 유효, When 실패 후처리 실행, Then `screenshotPath!=null` and `html.main.path!=null` and `ocr.status!=null`.
 
-## 2. 기술 스택
+## 오류 계약
+- 에러 코드: 공통 분류 코드를 사용한다(`AUTH_INVALID_CREDENTIALS`, `NETWORK_NAVIGATION_TIMEOUT`, `DOM_SELECTOR_NOT_VISIBLE`, `PARSE_FORMAT_INVALID`, `PURCHASE_VERIFICATION_FAILED`, `EMAIL_SEND_FAILED`, `OCR_ENGINE_UNAVAILABLE`, `OCR_TIMEOUT`, `OCR_TEXT_NOT_FOUND`, `OCR_EXTRACTION_FAILED`, `UNKNOWN_UNCLASSIFIED`).
+- HTTP status(해당 시): CLI 중심 경계로 HTTP status 계약을 두지 않는다.
+- 재시도 가능 여부: 네트워크/브라우저 액션 일부는 하위 경계 재시도 유틸로 재시도 가능.
+- 발생 조건: 환경 변수 검증 실패, 외부 사이트 DOM/네트워크 장애, SMTP 인증 실패.
 
-| 기술 | 용도 |
-|------|------|
-| Node.js 20+ | 런타임 |
-| TypeScript | 타입 안전성 |
-| Playwright | 브라우저 자동화 (모바일 에뮬레이션) |
-| Nodemailer | 이메일 전송 |
-| ESLint | 코드 린팅 |
+## 불변식/제약
+- 트랜잭션 경계: 없음.
+- 정합성 규칙: 공통 설정 파싱 결과는 단일 `getConfig()` 캐시를 통해 일관되게 재사용한다.
+- 멱등성 규칙: `DRY_RUN=true` 시 구매 커맨드는 결제 상태를 변경하지 않는다.
+- 순서 보장 규칙: 명령 실행은 로그인 선행 후 구매/조회/당첨확인 단계를 따른다.
 
----
+## 비기능 요구
+- 성능(SLO): 코드/설정에 수치형 SLO 정의가 없다.
+- 보안 요구: 민감 정보는 코드/문서에 하드코딩하지 않고 환경 변수/Secrets로만 주입한다.
+- 타임아웃: Playwright 호출 타임아웃(주요 이동 60초, 요소 대기 30초 내외), OCR 처리 타임아웃(`ocrTimeoutMs<=5000`)을 준수한다.
+- 동시성 요구: 테스트 스위트는 serial/parallel 모드를 명시적으로 사용한다.
 
-## 3. 기본 원칙
+## 의존성 계약
+- 내부 경계: `src/lotto645/browser`, `src/lotto645/browser/actions`, `src/lotto645/commands`, `src/lotto645/domain`, `src/lotto645/services`, `src/pension720/browser`, `src/pension720/browser/actions`, `src/pension720/commands`, `src/pension720/domain`, `src/pension720/services`, `src/shared/browser`, `src/shared/browser/actions`, `src/shared/config`, `src/shared/ocr`, `src/shared/services`, `src/shared/utils`, `tests`, `tests/utils`.
+- 외부 서비스: 동행복권 웹, SMTP 서버.
+- 외부 라이브러리: Playwright, Zod, Nodemailer, ESLint, TypeScript.
 
-1. **TypeScript 전용**
-    - 새 코드는 모두 TypeScript로 작성한다.
-    - ESM 모듈 시스템을 사용한다 (`.js` 확장자로 import).
+## 수용 기준
+- [ ] 루트 스크립트로 로또/연금복권 구매/조회/당첨확인 명령을 실행할 수 있다.
+- [ ] shared 설정/브라우저/이메일 의존 경로가 문서와 코드에서 일치한다.
+- [ ] CI 및 스케줄 워크플로우가 문서된 계약과 모순되지 않는다.
+- [ ] 실패 출력/알림에 `error.code`와 `error.category`가 포함된다.
+- [ ] 실패 경로에서 스크린샷/HTML/OCR 진단이 수집되고, 실패 메일 첨부 정책(10MB 상한, 초과 시 부분 첨부)이 유지된다.
 
-2. **스타일 가이드 준수**
-    - 린트: `npx eslint .` 통과 필수.
-    - 타입 체크: `npx tsc --noEmit` 통과 필수.
-
-3. **명확성 우선**
-    - 요구사항이 모호하면 질문을 남긴다.
-    - 작업 범위를 가장 작은 단위로 좁힌다.
-
-4. **작은 변경 단위**
-    - 한 번에 많은 파일을 대규모로 변경하지 않는다.
-    - 리팩터링과 기능 추가는 분리한다.
-
----
-
-## 4. 디렉토리 구조
-
-```
-src/
-├── lotto645/              # 로또 6/45
-│   ├── commands/          # CLI 진입점
-│   │   ├── buy.ts
-│   │   ├── check.ts
-│   │   └── check-result.ts
-│   ├── browser/
-│   │   ├── selectors.ts   # 구매 페이지 셀렉터 (모바일)
-│   │   └── actions/
-│   │       ├── purchase.ts
-│   │       ├── check-purchase.ts
-│   │       └── fetch-winning.ts
-│   ├── domain/
-│   │   ├── ticket.ts
-│   │   └── winning.ts
-│   └── services/
-│       ├── email.templates.ts
-│       └── winning-check.service.ts
-├── pension720/            # 연금복권 720+
-│   ├── commands/
-│   ├── browser/
-│   ├── domain/
-│   └── services/
-└── shared/                # 공통 모듈
-    ├── browser/
-    │   ├── context.ts     # 브라우저 세션 (모바일 에뮬레이션)
-    │   ├── selectors.ts   # 로그인 셀렉터
-    │   └── actions/
-    │       ├── login.ts
-    │       └── purchase-history.ts
-    ├── config/
-    │   └── index.ts       # 환경 변수 로더
-    ├── services/
-    │   └── email.service.ts
-    └── utils/
-        ├── retry.ts
-        ├── date.ts
-        └── html.ts
-```
-
----
-
-## 5. 절대 금지 행동
-
-1. **시크릿/민감 정보 커밋 금지**
-    - API 키, 비밀번호, 접속 토큰 등은 환경 변수로 처리한다.
-
-2. **테스트 파일 직접 수정 금지**
-    - 테스트가 잘못되었다고 판단되면 코멘트로 남긴다.
-
-3. **비즈니스 로직 추측 금지**
-    - 요구사항이 불분명하면 질문을 남긴다.
-
----
-
-## 6. 환경 변수
-
-```env
-# 동행복권 로그인
-LOTTO_USERNAME=아이디
-LOTTO_PASSWORD=비밀번호
-
-# 이메일 설정
-LOTTO_EMAIL_SMTP_HOST=smtp.gmail.com
-LOTTO_EMAIL_SMTP_PORT=587
-LOTTO_EMAIL_USERNAME=이메일
-LOTTO_EMAIL_PASSWORD=앱_비밀번호
-LOTTO_EMAIL_FROM=발신자
-LOTTO_EMAIL_TO=수신자1,수신자2
-
-# 실행 옵션
-DRY_RUN=true          # false면 실제 구매
-HEADED=true           # true면 브라우저 표시
-```
-
----
-
-## 7. 로컬 개발
-
-```bash
-# 의존성 설치
-npm install
-npx playwright install chromium
-
-# 로또 구매 테스트 (DRY RUN)
-HEADED=true npm run lotto:buy
-
-# 로또 실제 구매
-HEADED=true DRY_RUN=false npm run lotto:buy
-
-# 로또 당첨 확인
-HEADED=true npm run lotto:check-result
-
-# 연금복권 구매 테스트 (DRY RUN)
-HEADED=true npm run pension:buy
-
-# 연금복권 실제 구매
-HEADED=true DRY_RUN=false npm run pension:buy
-```
-
----
-
-## 8. 브라우저 환경
-
-- **모바일 에뮬레이션**: iPhone (iOS 17, Safari) 환경으로 동작
-- **뷰포트**: 390x844 (iPhone 14)
-- **구매 URL**: `ol.dhlottery.co.kr/olotto/game_mobile/game645.do` (모바일 전용)
-- **봇 탐지 우회**: webdriver 숨김, navigator.platform = 'iPhone'
-
----
-
-## 9. GitHub Actions
-
-- **lotto-buy.yml**: 평일 09:00 KST 로또 구매
-- **pension-buy.yml**: 평일 10:00 KST 연금복권 구매
-- **lotto-check.yml**: 토요일 22:00 KST 로또 당첨 확인
-- **pension-check.yml**: 목요일 21:00 KST 연금복권 당첨 확인
-- **auto-commit.yml**: 일요일 09:00 KST 자동 커밋
+## 오픈 질문
+- 내용: `package.json`의 `claude`, `update`, `upgrade` 의존성이 런타임/개발 흐름에서 실제로 사용되는지 확인이 필요하다.
+- 확인 불가 사유: 저장소 코드 경로에서 해당 패키지를 직접 import/실행하는 근거를 확인하지 못했다.
+- 확인 경로: `package.json` scripts, CI workflow, 실제 배포/운영 실행 로그에서 패키지 호출 여부를 점검한다.
+- 해소 조건: 세 패키지의 사용 경로가 코드/워크플로우에서 확인되거나 제거 커밋으로 정리되면 항목을 닫는다.

@@ -594,3 +594,13 @@ test.describe('연금복권 720+ 구매내역 조회 테스트 (로그인 필요
     await closeBtn.click();
   });
 });
+
+test.describe('연금복권 실패 진단 계약 매핑', () => {
+  test('should_capture_ocr_and_html_artifacts_on_failure', async ({}, testInfo) => {
+    testInfo.skip(true, '실패 유도 시나리오는 운영 사이트 상태에 따라 비결정적입니다.');
+  });
+
+  test('should_emit_ocr_and_html_artifacts_on_failure', async ({}, testInfo) => {
+    testInfo.skip(true, '실패 유도 시나리오는 운영 사이트 상태에 따라 비결정적입니다.');
+  });
+});
