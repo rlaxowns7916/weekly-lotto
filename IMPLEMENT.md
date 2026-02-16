@@ -12,6 +12,7 @@ Schema-Version: SRTE-DOCS-1
 ## 호출 흐름
 1. npm script가 도메인별 `commands/*.ts`의 `main()`을 실행한다.
 2. 커맨드가 브라우저 세션 생성 후 공통 로그인 액션을 호출한다.
+   - 로그인 액션은 `https://www.dhlottery.co.kr/` 선접속 후 `/login`으로 이동한다.
 3. 도메인별 브라우저 액션으로 구매/조회/당첨번호 데이터를 수집한다.
 4. 서비스 계층에서 결과 집계/출력을 수행하고 필요 시 이메일을 전송한다.
 5. 실패 경로에서는 스크린샷/HTML(메인+프레임)/OCR 진단을 수집하고 첨부 메일을 구성한다.
@@ -35,6 +36,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 외부 연동 정책
 - 브라우저 연동: Playwright `page.goto`와 locator 대기 사용.
+  - 로그인 준비 네비게이션 순서: `홈페이지 -> 로그인 페이지`.
 - 재시도: `withRetry`(지수 백오프+지터) 사용.
 - timeout: 주요 이동 60초, 요소 대기 10~30초, OCR 처리 5초.
 - backoff/circuit breaker/idempotency key: circuit breaker/idempotency key는 구현되지 않았다.
@@ -89,8 +91,8 @@ Schema-Version: SRTE-DOCS-1
 ## 시나리오 추적성 (권장)
 | SCN | 구현 파일#심볼 | 테스트명 |
 |---|---|---|
-| SCN-001 | `src/lotto645/commands/check-result.ts#main` | `tests/lotto645.spec.ts::메인 페이지에서 로또 6/45 당첨번호가 표시된다` |
-| SCN-002 | `src/pension720/commands/check-result.ts#main` | `tests/pension720.spec.ts::메인 페이지에서 연금복권 슬라이더가 표시된다` |
+| SCN-001 | `src/shared/browser/actions/login.ts#login` | `tests/login.spec.ts::홈페이지 선접속 후 로그인 페이지가 로드된다` |
+| SCN-002 | `src/shared/browser/actions/login.ts#login` | `tests/login.spec.ts::잘못된 비밀번호로 로그인에 실패한다` |
 | SCN-003 | `src/lotto645/commands/buy.ts#main` | `tests/lotto645.spec.ts::should_capture_ocr_and_html_artifacts_on_failure` |
 
 ## 변경 규칙 (권장)

@@ -21,6 +21,7 @@ Schema-Version: SRTE-DOCS-1
 - 유효성 규칙:
   - 계정 누락 시 해당 시나리오는 `test.skip`로 처리.
   - 사이트 점검/네트워크 장애 시 헬퍼 정책에 따라 재시도 또는 skip.
+  - 로그인 준비 시나리오는 `https://www.dhlottery.co.kr/` 선접속 후 `/login` 진입 순서를 따른다.
 - 출력 타입/필드:
   - 테스트 결과(pass/fail/skip).
   - HTML 리포트/스크린샷/trace.
@@ -28,7 +29,7 @@ Schema-Version: SRTE-DOCS-1
   - OCR/HTML 실패 아티팩트 검증 결과(`ocr.status`, `html.main.path`, `attachment.status`).
 
 ## 행동 시나리오
-- SCN-001: Given 정상 네트워크와 유효 계정, When 모바일 구매/조회 시나리오 실행, Then `testStatus=passed` and `selectorVisible=true`.
+- SCN-001: Given 정상 네트워크와 유효 계정, When 로그인 필요 시나리오를 실행, Then `visitedUrls[0]="https://www.dhlottery.co.kr/"` and `visitedUrls[1] contains "/login"` and `testStatus=passed`.
 - SCN-002: Given 모바일 구매 페이지 진입 또는 셀렉터 표시 실패, When 대기 조건이 타임아웃, Then `testStatus=failed` and `diagnosticAttachmentCount>=1` and `mappedErrorCode!=null`.
 - SCN-003: Given 실패 케이스가 발생, When 아티팩트 검증 수행, Then `ocr.status!=null` and (`html.main.path!=null` or `html.status=FAILED`) and `attachment.status!=null`.
 
@@ -42,7 +43,8 @@ Schema-Version: SRTE-DOCS-1
 - 트랜잭션 경계: 없음.
 - 정합성 규칙: 로그인 필요 시나리오는 인증 성공 상태를 선행 조건으로 유지한다.
 - 멱등성 규칙: DRY RUN 시나리오는 상태 변경 없이 반복 실행 가능해야 한다.
-- 순서 보장 규칙: 모바일 구매 시나리오는 로그인 -> 구매 페이지 진입 -> 버튼/팝업 검증 순서를 유지한다.
+- 순서 보장 규칙: 로그인 준비는 `홈페이지 선접속 -> 로그인 페이지 이동 -> 자격증명 제출` 순서를 유지한다.
+  - 모바일 구매 시나리오는 로그인 -> 구매 페이지 진입 -> 버튼/팝업 검증 순서를 유지한다.
 
 ## 비기능 요구
 - 성능(SLO): 단일 locator 대기 기본 상한은 30초, navigation 상한은 60초.
@@ -57,6 +59,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 수용 기준
 - [ ] 로그인/로또/연금복권 E2E 시나리오가 현재 UI 계약 기준으로 실행 가능하다.
+- [ ] 로그인 E2E가 선접속 순서(`https://www.dhlottery.co.kr/` -> `/login`)를 검증한다.
 - [ ] 실패 케이스에서 diagnostics attachment가 생성되고 URL/셀렉터 상태가 포함된다.
 - [ ] diagnostics에서 운영 에러 코드로의 매핑 검증 케이스가 존재한다.
 - [ ] 문서 내용이 실제 테스트 코드와 드리프트 없이 유지된다.

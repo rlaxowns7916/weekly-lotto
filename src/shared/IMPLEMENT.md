@@ -3,7 +3,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 모듈 분해
 - `browser/context.ts`: 브라우저 세션 생성/종료와 오류 스크린샷 저장.
-- `browser/actions/login.ts`: 로그인 자동화.
+- `browser/actions/login.ts`: 홈페이지 선접속 + 로그인 자동화.
 - `browser/actions/purchase-history.ts`: 구매내역 페이지 이동/필터링.
 - `config/index.ts`: 환경 변수 검증(`zod`)과 설정 캐시(`getConfig()`).
 - `ocr/*`: 실패 스크린샷 OCR 추출, HTML 스냅샷 정규화, 힌트 코드 생성.
@@ -13,6 +13,7 @@ Schema-Version: SRTE-DOCS-1
 ## 호출 흐름
 1. 상위 명령 경계가 `getConfig()`로 설정을 로딩한다.
 2. 상위 명령 경계가 `createBrowserSession()`과 `login()`을 호출한다.
+   - `login()`은 `https://www.dhlottery.co.kr/`를 먼저 방문한 뒤 `/login`으로 이동한다.
 3. 구매내역 조회 시 `navigateToPurchaseHistory()`를 통해 공통 필터를 적용한다.
 4. 실패 경로에서 `ocr/*`가 스크린샷/HTML 스냅샷을 기반으로 진단 결과를 생성한다.
 5. 결과 알림이 필요할 때 `hasEmailConfig()` 확인 후 첨부 포함 `sendEmail()`을 호출한다.
@@ -36,6 +37,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 외부 연동 정책
 - 브라우저 연동: Playwright 사용, 모바일 에뮬레이션 컨텍스트 생성.
+  - 로그인 경로는 홈페이지 warm-up 네비게이션 후 로그인 페이지 진입을 기본 계약으로 사용한다.
 - 이메일 연동: Nodemailer SMTP 트랜스포터 사용.
 - timeout/retry/backoff:
   - Playwright 주요 이동 60초, 요소 대기 10~30초, 스크린샷 저장 5초.
@@ -51,6 +53,7 @@ Schema-Version: SRTE-DOCS-1
 ## 예외 처리 전략
 - 설정: 스키마 검증 실패 시 throw.
 - 브라우저/로그인: 실패 시 예외 전파, 필요 시 스크린샷 기록.
+  - 홈페이지 또는 로그인 페이지 이동 타임아웃은 `NETWORK_NAVIGATION_TIMEOUT` 분류를 따른다.
 - 이메일: 전송 실패를 `EmailResult{ success: false, error }`로 반환.
 - 재시도 유틸: 마지막 실패를 throw하고 호출자가 처리한다.
 
@@ -70,6 +73,7 @@ Schema-Version: SRTE-DOCS-1
 
 ## 테스트 설계
 - 단위 테스트: `src/shared/config/index.test.ts`, `src/shared/utils/date.test.ts`, `src/shared/utils/retry.test.ts`.
+- 단위 테스트: `src/shared/browser/actions/login.test.ts`로 로그인 순서(`home -> /login`) 회귀를 검증한다.
 - 간접 통합 검증: `tests/*.spec.ts`에서 로그인/구매내역/공통 유틸 사용 경로 확인.
 - 시나리오-테스트 1:1 매핑:
   - `SCN-001` -> `src/shared/config/index.test.ts`의 유효 설정 로딩 케이스.
@@ -100,6 +104,7 @@ Schema-Version: SRTE-DOCS-1
 | SCN-001 | `src/shared/config/index.ts#getConfig` | `src/shared/config/index.test.ts::parses base config and boolean flags` |
 | SCN-002 | `src/shared/config/index.ts#loadConfig` | `src/shared/config/index.test.ts::throws when smtp host/port exist but required email fields are missing` |
 | SCN-003 | `src/shared/browser/context.ts#saveFailureHtmlSnapshot` | `tests/lotto645.spec.ts::should_capture_ocr_and_html_artifacts_on_failure` |
+| SCN-004 | `src/shared/browser/actions/login.ts#login` | `tests/login.spec.ts::홈페이지 선접속 후 로그인 페이지가 로드된다` |
 
 ## 변경 규칙 (권장)
 - MUST: `config/index.ts` 스키마를 변경하면 `config/index.test.ts`를 함께 수정한다.
