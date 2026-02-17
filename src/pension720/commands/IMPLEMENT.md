@@ -6,6 +6,10 @@ Schema-Version: SRTE-DOCS-1
 - `check.ts`: 주간 구매내역 조회 및 요약 출력.
 - `check-result.ts`: 당첨번호 조회/회차 조회/집계/메일 전송.
 
+```mermaid
+flowchart TD
+    M1["buy.ts"] -->|호출| M2["check.ts"]
+```
 ## 호출 흐름
 1. 커맨드가 브라우저 세션을 생성한다.
 2. 공통 로그인 함수를 호출한다.
@@ -14,6 +18,13 @@ Schema-Version: SRTE-DOCS-1
 5. 로그 후 `process.exit(1)` 처리한다.
 6. `finally`에서 세션을 종료한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - `buy.ts`:
   - `DRY_RUN` 문자열 해석.
@@ -27,6 +38,10 @@ Schema-Version: SRTE-DOCS-1
 - 입력: `DRY_RUN`, `PENSION_GROUP`, 로그인/이메일 관련 환경 변수.
 - 출력: 콘솔 로그, `PensionWinningCheckResult`, 이메일 템플릿 데이터.
 
+```mermaid
+erDiagram
+    DRY_RUN ||--o{ PENSIONWINNINGCHECKRESULT : "uses"
+```
 ## 외부 연동 정책
 - 브라우저 자동화와 메일 전송은 하위 경계에 위임한다.
 - retry/backoff 정책은 하위 액션 구현(`withRetry`)을 따른다.

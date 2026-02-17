@@ -50,6 +50,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 동행복권 모바일 구매/구매내역/메인 페이지.
 - 외부 라이브러리: Playwright.
 
+```mermaid
+flowchart LR
+    THIS["src/lotto645/browser/actions"]:::current
+    THIS -->|"내부 계약 4건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 실구매 경로가 선검증 -> 구매 -> 후검증 순서를 따른다.
 - [ ] 구매내역/당첨번호 파싱 함수가 타입 계약대로 값을 반환한다.

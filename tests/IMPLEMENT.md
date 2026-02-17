@@ -9,6 +9,10 @@ Schema-Version: SRTE-DOCS-1
 - `utils/site-availability.ts`: 점검 감지 및 네트워크 재시도/skip 정책을 담당한다.
 - `utils/purchase-history.ts`: 구매내역 상세 검색/팝업 처리 공통 동작을 담당한다.
 
+```mermaid
+flowchart TD
+    M1["login.spec.ts"] -->|호출| M2["lotto645.spec.ts"]
+```
 ## 호출 흐름
 1. suite `beforeEach`에서 네트워크 가드 설치 및 선행 페이지 진입.
    - 로그인 suite는 `https://www.dhlottery.co.kr/`를 먼저 방문한 뒤 `/login`으로 이동한다.
@@ -18,6 +22,13 @@ Schema-Version: SRTE-DOCS-1
 5. 실패 시 OCR/HTML 아티팩트 상태를 assertion 또는 attachment로 기록.
 6. Playwright 리포터가 스크린샷/trace/video(실패 시)와 함께 결과를 저장.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 실패 진단 생성:
   - 입력: `page`, `context`, `probes[]`.
@@ -38,6 +49,10 @@ Schema-Version: SRTE-DOCS-1
 - diagnostics 모델 필드: `context`, `url`, `title`, `isLoginPage`, `maintenance`, `selectors[]`.
 - 아티팩트 모델 필드: `ocr.status`, `ocr.hintCode`, `html.main.path`, `html.frames[]`, `attachment.status`.
 
+```mermaid
+erDiagram
+    CONTEXT ||--o{ OCR_STATUS : "uses"
+```
 ## 외부 연동 정책
 - 동행복권 페이지 접근은 Playwright `page.goto`를 사용한다.
 - 네트워크 오류는 `attachNetworkGuard`가 최대 재시도 후 skip 처리한다.

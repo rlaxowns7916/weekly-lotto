@@ -5,11 +5,22 @@ Schema-Version: SRTE-DOCS-1
 - `ticket.ts`: 티켓 타입, 모드/슬롯 타입, 모드 라벨 함수, 날짜 유틸 re-export.
 - `winning.ts`: 당첨 타입, 등수 라벨, 당첨 판정 및 일치번호 계산 함수.
 
+```mermaid
+flowchart TD
+    M1["ticket.ts"] -->|호출| M2["winning.ts"]
+```
 ## 호출 흐름
 1. 상위 서비스가 티켓/당첨번호를 도메인 함수에 전달한다.
 2. `checkWinning`이 일치 개수와 보너스 일치 여부를 계산한다.
 3. 서비스 계층이 `getRankLabel`, `getMatchingNumbers`, `isWinning`으로 출력값을 구성한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - `checkWinning`:
   - `countMatches`로 일치 개수 계산.
@@ -22,6 +33,10 @@ Schema-Version: SRTE-DOCS-1
 - `WinningNumbers`: 회차/추첨일/당첨번호6개/보너스.
 - `WinningRank`: `rank1|rank2|rank3|rank4|rank5|none`.
 
+```mermaid
+erDiagram
+    PURCHASEDTICKET ||--o{ WINNINGNUMBERS : "uses"
+```
 ## 외부 연동 정책
 - 외부 서비스 연동 없음.
 - timeout/retry/backoff/circuit breaker/idempotency key: 해당 없음.
@@ -46,6 +61,18 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `src/lotto645/domain/winning.ts#checkWinning` | `src/lotto645/domain/winning.test.ts::returns rank1 when all six numbers match` |
 | SCN-002 | `src/lotto645/domain/winning.ts#checkWinning` | `src/lotto645/domain/winning.test.ts::counts duplicate purchased numbers as one logical match` |
+
+## 파일 계약 (핵심 파일 상세, 권장)
+| 파일 | 외부 노출 심볼 | 입력 | 출력 | 오류/제약 |
+|---|---|---|---|---|
+| `ticket.ts` | `getModeLabel`, `getLottoDayLabel` | `Lotto645Mode`/`Date` | 라벨 문자열 | 명시적 throw 없음 |
+| `winning.ts` | `checkWinning`, `getMatchingNumbers`, `isWinning` | 구매번호, 당첨번호 | `WinningRank`, 일치번호 | 중복 번호는 집합으로 처리 |
+
+## 변경 규칙 (권장)
+- MUST: 등수 판정 우선순위(6/5+보너스/5/4/3/낙첨)를 변경하면 `winning.test.ts`를 함께 수정한다.
+- MUST: 중복 번호 제거 규칙을 유지한다.
+- MUST NOT: 도메인 함수에서 명시적 예외 throw를 추가하지 않는다.
+- 함께 수정할 테스트 목록: `src/lotto645/domain/winning.test.ts`.
 
 ## 알려진 제약
 - `Lotto645Mode`의 `semi-auto` 값은 타입에 존재하지만 현재 기본 구매 경로는 `auto` 중심으로 동작한다.

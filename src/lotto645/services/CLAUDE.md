@@ -50,6 +50,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 없음.
 - 외부 라이브러리: 없음.
 
+```mermaid
+flowchart LR
+    THIS["src/lotto645/services"]:::current
+    THIS -->|"내부 계약 3건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 당첨 집계 결과가 티켓별 판정과 요약을 포함한다.
 - [ ] 콘솔 출력 함수가 집계 결과를 사람이 읽을 수 있는 형태로 출력한다.

@@ -52,6 +52,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: `https://ol.dhlottery.co.kr`, `https://www.dhlottery.co.kr`.
 - 외부 라이브러리: Playwright.
 
+```mermaid
+flowchart LR
+    THIS["src/lotto645/browser"]:::current
+    THIS -->|"내부 계약 4건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 2건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 로또 모바일 구매 셀렉터 상수가 코드와 일치한다.
 - [ ] 구매/조회/당첨번호 액션이 `Page` 입력으로 호출 가능하다.

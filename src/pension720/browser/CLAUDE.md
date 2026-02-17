@@ -52,6 +52,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: `https://el.dhlottery.co.kr`, `https://www.dhlottery.co.kr`.
 - 외부 라이브러리: Playwright.
 
+```mermaid
+flowchart LR
+    THIS["src/pension720/browser"]:::current
+    THIS -->|"내부 계약 4건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 2건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 구매 셀렉터/요일별 조 규칙이 코드와 일치한다.
 - [ ] 연금복권 구매/조회/당첨번호 액션이 호출 가능하다.

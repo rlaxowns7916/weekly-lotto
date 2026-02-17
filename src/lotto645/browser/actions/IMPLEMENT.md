@@ -6,12 +6,23 @@ Schema-Version: SRTE-DOCS-1
 - `check-purchase.ts`: 구매내역 이동, 모달 파싱, 회차/주간 조회, 요약 출력.
 - `fetch-winning.ts`: 메인 슬라이더 기반 당첨번호 조회.
 
+```mermaid
+flowchart TD
+    M1["purchase.ts"] -->|호출| M2["check-purchase.ts"]
+```
 ## 호출 흐름
 1. `purchaseLotto` 호출 시 `dryRun` 여부를 판별한다.
 2. 실구매는 `checkRecentPurchase` -> `executePurchase` -> `verifyRecentPurchase` 순서로 실행한다.
 3. 조회 함수는 `navigateToPurchaseHistory` 후 바코드별 `getTicketDetails`를 반복 호출한다.
 4. 당첨번호 조회는 메인 페이지 이동 후 슬라이드 파싱 함수를 호출한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 티켓 파싱:
   - 모달 텍스트에서 회차/발행일/추첨일 추출.
@@ -25,6 +36,10 @@ Schema-Version: SRTE-DOCS-1
 - 내부 파싱 모델 `TicketDetails`는 `PurchasedTicket` 확장(`barcode?`).
 - 당첨조회 출력은 `WinningNumbers`.
 
+```mermaid
+erDiagram
+    PURCHASEDTICKET ||--o{ TICKETDETAILS : "uses"
+```
 ## 외부 연동 정책
 - 구매내역 연동은 shared `navigateToPurchaseHistory(LO40)`를 사용한다.
 - retry/backoff: `withRetry` 사용.

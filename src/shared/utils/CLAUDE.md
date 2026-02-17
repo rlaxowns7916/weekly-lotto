@@ -53,6 +53,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 없음.
 - 외부 라이브러리: 없음.
 
+```mermaid
+flowchart LR
+    THIS["src/shared/utils"]:::current
+    THIS -->|"내부 계약 1건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 재시도 유틸이 지수 백오프/지터 정책을 적용한다.
 - [ ] 날짜 유틸이 사이트 문자열 형식 기준 동작을 제공한다.

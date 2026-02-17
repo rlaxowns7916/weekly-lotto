@@ -9,6 +9,10 @@ Schema-Version: SRTE-DOCS-1
 - 결과 처리: `src/lotto645/services/*.ts`, `src/pension720/services/*.ts`.
 - 검증: `tests/*.spec.ts`, `tests/utils/*.ts`, `playwright.config.ts`.
 
+```mermaid
+flowchart TD
+    M1["src/lotto645/commands/*.ts"] -->|호출| M2["src/lotto645/browser/**"]
+```
 ## 호출 흐름
 1. npm script가 도메인별 `commands/*.ts`의 `main()`을 실행한다.
 2. 커맨드가 브라우저 세션 생성 후 공통 로그인 액션을 호출한다.
@@ -18,6 +22,13 @@ Schema-Version: SRTE-DOCS-1
 5. 실패 경로에서는 스크린샷/HTML(메인+프레임)/OCR 진단을 수집하고 첨부 메일을 구성한다.
 6. 모든 커맨드는 `finally`에서 브라우저 세션을 종료한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 구매 선검증/후검증:
   - 구매 전 최근 N분 구매 티켓을 조회한다.
@@ -34,6 +45,10 @@ Schema-Version: SRTE-DOCS-1
 - 공통: `Config`, `EmailConfig`, `EmailOptions`, `EmailResult`.
 - 실패 진단: `OcrResult`, `HtmlSnapshotResult`, `FailureArtifacts`.
 
+```mermaid
+erDiagram
+    PURCHASEDTICKET ||--o{ PURCHASEDPENSIONTICKET : "uses"
+```
 ## 외부 연동 정책
 - 브라우저 연동: Playwright `page.goto`와 locator 대기 사용.
   - 로그인 준비 네비게이션 순서: `홈페이지 -> 로그인 페이지`.

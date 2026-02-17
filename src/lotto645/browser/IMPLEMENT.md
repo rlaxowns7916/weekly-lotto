@@ -7,12 +7,23 @@ Schema-Version: SRTE-DOCS-1
 - `actions/check-purchase.ts`: 구매내역 조회 및 티켓 파싱.
 - `actions/fetch-winning.ts`: 메인 슬라이더 당첨번호 파싱.
 
+```mermaid
+flowchart TD
+    M1["selectors.ts"] -->|호출| M2["actions/purchase.ts"]
+```
 ## 호출 흐름
 1. 상위 커맨드가 액션 함수를 호출한다.
 2. 구매 계열은 `purchase.ts`에서 필요 시 `check-purchase.ts` 검증 함수를 호출한다.
 3. 조회 계열은 구매내역 페이지 이동 후 모달 파싱으로 티켓 데이터를 생성한다.
 4. 당첨번호 조회는 메인 페이지 이동 후 슬라이더 파싱을 수행한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 구매 알고리즘:
   - 최근 구매 존재 여부 확인.
@@ -26,6 +37,11 @@ Schema-Version: SRTE-DOCS-1
 ## 데이터 모델
 - 출력 모델: `PurchasedTicket`, `WinningNumbers`.
 - 입력/중간 데이터: 로케이터 텍스트, 회차/발행일/번호 배열.
+
+```mermaid
+erDiagram
+    PURCHASEDTICKET ||--o{ WINNINGNUMBERS : "parses against"
+```
 
 ## 외부 연동 정책
 - 대상 URL: `https://ol.dhlottery.co.kr/.../game645.do`, `https://www.dhlottery.co.kr/main`.

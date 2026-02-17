@@ -11,6 +11,13 @@ Schema-Version: SRTE-DOCS-1
 4. nodemailer 트랜스포터를 생성해 메일을 전송한다.
 5. 성공/실패 결과를 `EmailResult`로 반환한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 전송 분기:
   - email 설정 없음 -> `success: false`, `error: '이메일 설정 없음'` 반환.
@@ -25,6 +32,10 @@ Schema-Version: SRTE-DOCS-1
 - `EmailOptions`: `subject`, `html`, `text?`, `attachments?`.
 - `EmailResult`: `success`, `messageId?`, `error?`, `attachmentStatus?`.
 
+```mermaid
+erDiagram
+    EMAILOPTIONS ||--o{ EMAILRESULT : "uses"
+```
 ## 외부 연동 정책
 - SMTP 연동: Nodemailer `createTransport` + `sendMail` + 첨부 목록(`attachments`).
 - retry/backoff/circuit breaker/idempotency key: 직접 구현 없음.

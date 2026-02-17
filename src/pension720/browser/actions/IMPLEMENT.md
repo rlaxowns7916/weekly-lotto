@@ -6,12 +6,23 @@ Schema-Version: SRTE-DOCS-1
 - `check-purchase.ts`: 구매내역 이동, 모달 파싱, 회차/주간 조회, 요약 출력.
 - `fetch-winning.ts`: 연금 슬라이더 파싱과 당첨번호 객체 생성.
 
+```mermaid
+flowchart TD
+    M1["purchase.ts"] -->|호출| M2["check-purchase.ts"]
+```
 ## 호출 흐름
 1. `purchasePension`이 조를 결정하고 DRY RUN 여부를 분기한다.
 2. 실구매 경로는 최근 구매 확인 후 구매 실행/검증을 수행한다.
 3. 조회 함수는 구매내역 페이지에서 바코드별 모달 파싱을 반복한다.
 4. 당첨조회 함수는 메인 페이지 슬라이더에서 1등/보너스 번호를 추출한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 티켓 파싱:
   - `.ticket-cate`에서 조 번호 추출.
@@ -24,6 +35,11 @@ Schema-Version: SRTE-DOCS-1
 ## 데이터 모델
 - `PurchasedPensionTicket`, `PensionWinningNumbers`.
 - 내부 유효성: 조 번호 1~5, 번호 6자리.
+
+```mermaid
+erDiagram
+    PURCHASEDPENSIONTICKET ||--o{ PENSIONWINNINGNUMBERS : "validated with"
+```
 
 ## 외부 연동 정책
 - 구매내역 이동은 shared `navigateToPurchaseHistory(LP72)` 사용.

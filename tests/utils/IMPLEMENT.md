@@ -6,6 +6,10 @@ Schema-Version: SRTE-DOCS-1
 - `purchase-history.ts`: 구매내역 상세 검색 열기, 최근 1주일 버튼 확보, 팝업 dismiss, 접근 가능성 검증을 제공한다.
 - `failure-diagnostics.ts`: 실패 시점 진단 정보 생성(`buildFailureReason`), OCR 힌트 매핑, attachment 상태 검증 컨텍스트 생성을 제공한다.
 
+```mermaid
+flowchart TD
+    M1["site-availability.ts"] -->|호출| M2["purchase-history.ts"]
+```
 ## 호출 흐름
 1. 테스트 코드가 `attachNetworkGuard`로 페이지 이동을 래핑한다.
 2. 시나리오 중 점검 문구/구매내역 접근 여부를 헬퍼로 판단한다.
@@ -13,6 +17,13 @@ Schema-Version: SRTE-DOCS-1
 4. 실패하면 `buildFailureReason`으로 상태 문자열 생성 후 `testInfo.attach`로 기록하고 throw.
 5. OCR/HTML 아티팩트 검증이 필요한 케이스는 diagnostics와 함께 힌트/첨부 상태 필드를 기록한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 네트워크 가드:
   - `page.goto`를 monkey patch한다.
@@ -31,6 +42,10 @@ Schema-Version: SRTE-DOCS-1
 - `SelectorProbeResult`: `label`, `count`, `visible`.
 - `ArtifactDiagnostic`: `ocrHintCode`, `mappedErrorCode`, `attachmentStatus`.
 
+```mermaid
+erDiagram
+    NETWORKGUARDOPTIONS ||--o{ SELECTORPROBE : "uses"
+```
 ## 외부 연동 정책
 - 동행복권 웹 접근 실패는 재시도 후 skip으로 처리한다.
 - timeout/retry/backoff는 고정 지연 재시도(`retryDelayMs`)를 사용한다.

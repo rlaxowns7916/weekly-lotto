@@ -55,6 +55,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 동행복권 웹, SMTP 서버.
 - 외부 라이브러리: Playwright, Zod, Nodemailer, ESLint, TypeScript.
 
+```mermaid
+flowchart LR
+    THIS["현재 경계"]:::current
+    THIS -->|"내부 계약 18건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 2건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 5건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 루트 스크립트로 로또/연금복권 구매/조회/당첨확인 명령을 실행할 수 있다.
 - [ ] shared 설정/브라우저/이메일 의존 경로가 문서와 코드에서 일치한다.
