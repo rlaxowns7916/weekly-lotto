@@ -52,6 +52,13 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 동행복권 웹(페이지 상태 감지 기준).
 - 내부 의존성: 없음.
 
+```mermaid
+flowchart LR
+    THIS["tests/utils"]:::current
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 점검/네트워크/구매내역/진단 유틸이 테스트 코드에서 재사용 가능하다.
 - [ ] 실패 시 diagnostics attachment가 생성되고 핵심 상태 필드가 포함된다.

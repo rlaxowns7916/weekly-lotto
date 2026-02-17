@@ -57,6 +57,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 동행복권 웹.
 - 외부 라이브러리: Playwright Test.
 
+```mermaid
+flowchart LR
+    THIS["tests"]:::current
+    THIS -->|"내부 계약 2건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 로그인/로또/연금복권 E2E 시나리오가 현재 UI 계약 기준으로 실행 가능하다.
 - [ ] 로그인 E2E가 선접속 순서(`https://www.dhlottery.co.kr/` -> `/login`)를 검증한다.

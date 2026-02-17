@@ -5,6 +5,10 @@ Schema-Version: SRTE-DOCS-1
 - `login.ts`: 홈페이지 선접속 후 로그인 페이지 진입, 대기열/오버레이 간섭 해제 대기, 계정 입력, 성공/실패 판정, 재시도, 오류 스크린샷.
 - `purchase-history.ts`: 구매내역 페이지 진입, 기간/상품 필터 적용, 바코드 locator 제공.
 
+```mermaid
+flowchart TD
+    M1["login.ts"] -->|호출| M2["purchase-history.ts"]
+```
 ## 호출 흐름
 1. 상위 커맨드/액션이 `login(page)`를 호출한다.
    - 로그인은 `https://www.dhlottery.co.kr/` 방문 후 `/login`으로 이동한다.
@@ -13,6 +17,13 @@ Schema-Version: SRTE-DOCS-1
 2. 로그인 성공 후 도메인 액션이 `navigateToPurchaseHistory(page, code)`를 호출한다.
 3. 결과 페이지에서 도메인별 파서가 바코드/모달을 후속 처리한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 로그인 알고리즘:
   - 홈페이지(`https://www.dhlottery.co.kr/`)를 먼저 호출해 세션을 초기화한다.
@@ -31,6 +42,10 @@ Schema-Version: SRTE-DOCS-1
 - `LotteryProductCode`: `LO40 | LP72`.
 - `LOTTERY_PRODUCTS`: 상품코드/이름/모달ID/티켓 셀렉터 매핑.
 
+```mermaid
+erDiagram
+    LOTTERYPRODUCTCODE ||--o{ LOTTERY_PRODUCTS : "uses"
+```
 ## 외부 연동 정책
 - 대상 URL: `https://www.dhlottery.co.kr/`, `/login`, `/mypage/mylotteryledger`.
 - retry/backoff: `withRetry` 사용.

@@ -6,6 +6,10 @@ Schema-Version: SRTE-DOCS-1
 - `html-snapshot.ts`: 메인/프레임 HTML 캡처 및 파일 저장.
 - `normalize.ts`: OCR 텍스트 힌트 코드 매핑 및 결과 포맷 통합.
 
+```mermaid
+flowchart TD
+    M1["extract.ts"] -->|호출| M2["html-snapshot.ts"]
+```
 ## 호출 흐름
 1. 상위 명령 경계가 실패 시 저장된 스크린샷 경로와 `Page`를 전달한다.
 2. OCR 추출 함수가 텍스트/신뢰도/언어를 수집하고 상태를 정규화한다.
@@ -13,6 +17,13 @@ Schema-Version: SRTE-DOCS-1
 4. 정규화 함수가 `ocr.hintCode`, `html.status`, 실패 사유를 병합해 반환한다.
 5. 상위 경계가 메일 첨부/콘솔 출력 정책(10MB 상한 포함)을 적용한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - OCR 추출:
   - 입력 이미지 경로 유효성 검증.
@@ -31,6 +42,10 @@ Schema-Version: SRTE-DOCS-1
 - `HtmlSnapshotResult`: `status`, `main`, `frames`, `failureReason?`, `captureTs`, `url`.
 - `FailureArtifacts`: `screenshotPath`, `ocr`, `html`, `attachmentCandidates`.
 
+```mermaid
+erDiagram
+    OCRRESULT ||--o{ HTMLSNAPSHOTRESULT : "uses"
+```
 ## 외부 연동 정책
 - Playwright `Page` API로 HTML 캡처를 수행한다.
 - OCR 엔진은 현재 기본 미연동이며 필요 시 `extractor` 주입 또는 `fallbackText` 경로로 추론 결과를 생성한다.

@@ -6,6 +6,10 @@ Schema-Version: SRTE-DOCS-1
 - `selectors.ts`: 로그인 선접속 URL/로그인 URL/role 기반 입력 셀렉터 상수.
 - `actions/`: 로그인/구매내역 이동 공통 액션.
 
+```mermaid
+flowchart TD
+    M1["context.ts"] -->|호출| M2["selectors.ts"]
+```
 ## 호출 흐름
 1. 상위 커맨드가 `createBrowserSession`으로 세션을 생성한다.
 2. 상위/하위 액션이 `page`를 사용해 로그인/구매내역/구매를 수행한다.
@@ -13,6 +17,13 @@ Schema-Version: SRTE-DOCS-1
 4. 실패 후처리에서 `saveFailureHtmlSnapshot`으로 메인/프레임 HTML을 수집한다.
 5. 종료 시 `closeBrowserSession`으로 context/browser를 닫는다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 브라우저 초기화:
   - `chromium.launch` + iPhone 모바일 userAgent/viewport 설정.
@@ -28,6 +39,10 @@ Schema-Version: SRTE-DOCS-1
 - `BrowserOptions`: `headed?`, `slowMo?`.
 - `BrowserSession`: `browser`, `context`, `page`.
 
+```mermaid
+erDiagram
+    BROWSEROPTIONS ||--o{ BROWSERSESSION : "uses"
+```
 ## 외부 연동 정책
 - Playwright Chromium 사용.
 - timeout: 스크린샷 저장 5초, HTML 캡처는 실패 후처리 전체 5초 상한 내 수행.

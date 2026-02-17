@@ -7,12 +7,23 @@ Schema-Version: SRTE-DOCS-1
 - `html.ts`: HTML 이스케이프 함수와 템플릿 반환 타입.
 - `error.ts`: 오류 taxonomy, OCR 힌트 코드/요약 포맷 정규화.
 
+```mermaid
+flowchart TD
+    M1["retry.ts"] -->|호출| M2["date.ts"]
+```
 ## 호출 흐름
 1. 상위 경계가 네트워크/브라우저 액션을 `withRetry`로 감싼다.
 2. 구매내역 파서가 발행일 문자열을 `parseSaleDate`로 변환한다.
 3. 실패 후처리가 OCR 텍스트를 받아 힌트 코드 매핑/요약 포맷을 생성한다.
 4. 서비스 템플릿이 `escapeHtml` 및 날짜 포맷 함수를 호출한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - `withRetry`:
   - 최대 시도 횟수만큼 함수 실행.
@@ -26,6 +37,10 @@ Schema-Version: SRTE-DOCS-1
 - `EmailTemplateResult`: `subject`, `html`, `text`.
 - `AppErrorCode`, `AppErrorCategory`, `RetryDiagnostic`, OCR 힌트 매핑 결과.
 
+```mermaid
+erDiagram
+    RETRYOPTIONS ||--o{ EMAILTEMPLATERESULT : "uses"
+```
 ## 외부 연동 정책
 - 외부 서비스 호출 없음.
 - retry/backoff는 `withRetry` 내부 정책으로 구현.

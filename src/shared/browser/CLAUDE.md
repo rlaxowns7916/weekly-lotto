@@ -58,6 +58,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 동행복권 웹(후속 액션에서 사용).
 - 외부 라이브러리: Playwright.
 
+```mermaid
+flowchart LR
+    THIS["src/shared/browser"]:::current
+    THIS -->|"내부 계약 1건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 브라우저 세션 생성/종료 함수가 공통 경계에서 재사용 가능하다.
 - [ ] 모바일 에뮬레이션 설정이 코드와 문서에서 일치한다.

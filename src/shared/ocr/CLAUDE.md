@@ -54,6 +54,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 없음(기본 경로는 로컬 OCR 엔진).
 - 외부 라이브러리: Playwright(HTML 캡처). OCR 엔진은 기본 미연동이며 `extractor` 주입 또는 fallback 텍스트 경로를 사용한다.
 
+```mermaid
+flowchart LR
+    THIS["src/shared/ocr"]:::current
+    THIS -->|"내부 계약 2건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] OCR 결과 구조(`ocr.status`, `ocr.text`, `ocr.hintCode`)가 항상 생성된다.
 - [ ] HTML 스냅샷(메인/프레임) 경로 또는 실패 사유가 항상 생성된다.

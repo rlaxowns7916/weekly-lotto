@@ -51,6 +51,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 없음.
 - 외부 라이브러리: 없음.
 
+```mermaid
+flowchart LR
+    THIS["src/lotto645/domain"]:::current
+    THIS -->|"내부 계약 1건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 로또 도메인 타입이 상위 경계에서 import 가능하다.
 - [ ] `checkWinning` 결과가 코드에 정의된 등수 규칙과 일치한다.
