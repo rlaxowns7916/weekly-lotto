@@ -5,11 +5,22 @@ Schema-Version: SRTE-DOCS-1
 - `winning-check.service.ts`: 연금복권 티켓 당첨 집계와 콘솔 출력.
 - `email.templates.ts`: 구매/실패/당첨 결과 이메일 템플릿 생성.
 
+```mermaid
+flowchart TD
+    M1["winning-check.service.ts"] -->|호출| M2["email.templates.ts"]
+```
 ## 호출 흐름
 1. 상위 커맨드가 티켓과 당첨번호를 서비스에 전달한다.
 2. 집계 함수가 티켓별 등수/일치정보를 계산하고 요약 문자열을 생성한다.
 3. 템플릿 함수가 결과를 subject/html/text로 변환한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 집계:
   - 티켓마다 `checkPensionWinning` 결과와 `matchInfo` 계산.
@@ -22,6 +33,10 @@ Schema-Version: SRTE-DOCS-1
 - `PensionTicketWinningResult`, `PensionWinningCheckResult`.
 - 템플릿 반환 타입 `{ subject, html, text }`.
 
+```mermaid
+erDiagram
+    PENSIONTICKETWINNINGRESULT ||--o{ __SUBJECT__HTML__TEXT__ : "uses"
+```
 ## 외부 연동 정책
 - 외부 서비스 직접 연동 없음.
 - timeout/retry/backoff/circuit breaker/idempotency key: 해당 없음.
@@ -47,6 +62,18 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `src/pension720/services/winning-check.service.ts#checkTicketsWinning` | `src/pension720/services/winning-check.service.test.ts::returns summary with winnerCount less than or equal to totalCount` |
 | SCN-002 | `src/pension720/services/email.templates.ts#winningResultTemplate` | `src/pension720/services/winning-check.service.test.ts::builds losing result template with subject containing 낙첨 and html containing summary` |
+
+## 파일 계약 (핵심 파일 상세, 권장)
+| 파일 | 외부 노출 심볼 | 입력 | 출력 | 오류/제약 |
+|---|---|---|---|---|
+| `winning-check.service.ts` | `checkTicketsWinning`, `printWinningResult` | `PurchasedPensionTicket[]`, `PensionWinningNumbers` | `PensionWinningCheckResult`, 콘솔 출력 | `winnerCount<=totalCount` 보장 |
+| `email.templates.ts` | `purchaseSuccessTemplate`, `purchaseFailureTemplate`, `winningResultTemplate` | 집계 결과/오류 문자열 | `{ subject, html, text }` | 오류 문자열 HTML 이스케이프 |
+
+## 변경 규칙 (권장)
+- MUST: 집계 결과 `round`는 입력 회차와 동일해야 한다.
+- MUST: 템플릿 subject/html/text 3종을 모두 반환한다.
+- MUST NOT: 서비스 계층에서 외부 SMTP 연동을 직접 수행하지 않는다.
+- 함께 수정할 테스트 목록: `src/pension720/services/winning-check.service.test.ts`.
 
 ## 알려진 제약
 - 메일 클라이언트별 HTML 렌더링 차이가 발생할 수 있다.

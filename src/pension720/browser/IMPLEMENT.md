@@ -7,12 +7,23 @@ Schema-Version: SRTE-DOCS-1
 - `actions/check-purchase.ts`: 구매내역 모달 파싱과 조회 함수.
 - `actions/fetch-winning.ts`: 메인 슬라이더 당첨번호 파싱.
 
+```mermaid
+flowchart TD
+    M1["selectors.ts"] -->|호출| M2["actions/purchase.ts"]
+```
 ## 호출 흐름
 1. 상위 커맨드가 browser/actions 함수를 호출한다.
 2. 구매 흐름은 조 선택 규칙 계산 후 구매 액션으로 분기한다.
 3. 조회/검증 흐름은 구매내역 이동 후 모달 파싱을 수행한다.
 4. 당첨조회 흐름은 메인 슬라이더 파싱으로 종료한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 조 선택 알고리즘: 월~금은 1~5조 매핑, 주말은 1조 기본값.
 - 구매 검증 알고리즘:
@@ -24,6 +35,11 @@ Schema-Version: SRTE-DOCS-1
 ## 데이터 모델
 - 출력 모델: `PurchasedPensionTicket`, `PensionWinningNumbers`.
 - 입력/중간 데이터: 조 번호, 6자리 번호 배열, 회차/발행일 텍스트.
+
+```mermaid
+erDiagram
+    PURCHASEDPENSIONTICKET ||--o{ PENSIONWINNINGNUMBERS : "parses against"
+```
 
 ## 외부 연동 정책
 - 대상 URL: `https://el.dhlottery.co.kr/.../pension720/game.jsp`, `https://www.dhlottery.co.kr/main`.

@@ -52,6 +52,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 없음.
 - 외부 라이브러리: 없음.
 
+```mermaid
+flowchart LR
+    THIS["src/pension720/domain"]:::current
+    THIS -->|"내부 계약 1건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 연금복권 도메인 타입이 상위 경계에서 import 가능하다.
 - [ ] `checkPensionWinning`이 정의된 등수 판정 규칙을 만족한다.

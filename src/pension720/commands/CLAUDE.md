@@ -55,6 +55,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 동행복권 웹, SMTP 서버.
 - 외부 라이브러리: Node.js 런타임, Playwright.
 
+```mermaid
+flowchart LR
+    THIS["src/pension720/commands"]:::current
+    THIS -->|"내부 계약 7건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 2건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 2건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] `pension:*` 명령이 문서된 흐름으로 실행된다.
 - [ ] 실패 시 종료 코드 1과 오류 로그가 노출된다.

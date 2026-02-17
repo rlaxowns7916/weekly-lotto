@@ -56,6 +56,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 동행복권 로그인/마이페이지.
 - 외부 라이브러리: Playwright.
 
+```mermaid
+flowchart LR
+    THIS["src/shared/browser/actions"]:::current
+    THIS -->|"내부 계약 3건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 공통 로그인 함수가 계정 누락/성공/실패를 구분한다.
 - [ ] 공통 로그인 함수가 선접속 순서(`https://www.dhlottery.co.kr/` -> `/login`)를 유지한다.

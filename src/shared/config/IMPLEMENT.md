@@ -10,6 +10,13 @@ Schema-Version: SRTE-DOCS-1
 3. 파싱 성공 시 결과를 캐시에 저장하고 반환한다.
 4. 실패 시 오류 상세 로그를 출력하고 Zod 오류를 throw한다.
 
+```mermaid
+sequenceDiagram
+    participant Caller as 상위 경계
+    participant This as 현재 경계
+    Caller->>This: 요청 전달
+    This-->>Caller: 결과 반환
+```
 ## 핵심 알고리즘
 - 이메일 설정 판단:
   - `LOTTO_EMAIL_SMTP_HOST`와 `LOTTO_EMAIL_SMTP_PORT` 존재 시에만 email 객체를 구성.
@@ -20,6 +27,10 @@ Schema-Version: SRTE-DOCS-1
 - `Config`(`username?`, `password?`, `email?`, `headed`, `ci`).
 - `EmailConfig`(`smtpHost`, `smtpPort`, `username`, `password`, `from`, `to[]`).
 
+```mermaid
+erDiagram
+    CONFIG ||--o{ EMAILCONFIG : "uses"
+```
 ## 외부 연동 정책
 - 외부 서비스 연동 없음.
 - 스키마 검증 라이브러리로 Zod 사용.
@@ -47,6 +58,18 @@ Schema-Version: SRTE-DOCS-1
 |---|---|---|
 | SCN-001 | `src/shared/config/index.ts#getConfig` | `src/shared/config/index.test.ts::parses base config and boolean flags` |
 | SCN-002 | `src/shared/config/index.ts#loadConfig` | `src/shared/config/index.test.ts::throws when smtp host/port exist but required email fields are missing` |
+
+## 파일 계약 (핵심 파일 상세, 권장)
+| 파일 | 외부 노출 심볼 | 입력 | 출력 | 오류/제약 |
+|---|---|---|---|---|
+| `index.ts` | `getConfig`, `loadConfig`, `hasEmailConfig` | `process.env` | `Config` | Zod 검증 실패 시 예외 throw |
+| `index.ts` | `resetConfigForTest` | 없음 | 캐시 초기화 | 테스트 전용 초기화 경로 |
+
+## 변경 규칙 (권장)
+- MUST: `getConfig()` 캐시 재사용 규칙을 유지한다.
+- MUST: 이메일 설정은 SMTP host/port 존재 시에만 활성화한다.
+- MUST NOT: 비밀값을 코드 상수로 하드코딩하지 않는다.
+- 함께 수정할 테스트 목록: `src/shared/config/index.test.ts`.
 
 ## 알려진 제약
 - 런타임 환경 변수 주입이 누락되면 실행 초기에 실패한다.

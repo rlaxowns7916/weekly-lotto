@@ -53,6 +53,14 @@ Schema-Version: SRTE-DOCS-1
 - 외부 서비스: 없음.
 - 외부 라이브러리: Zod.
 
+```mermaid
+flowchart LR
+    THIS["src/shared/config"]:::current
+    THIS -->|"내부 계약 1건"| INTERNAL["내부 경계"]
+    THIS -.->|"외부 연동 1건"| EXTERNAL["외부 서비스"]
+    THIS -.->|"라이브러리 1건"| LIB["외부 라이브러리"]
+    classDef current stroke-width:3px
+```
 ## 수용 기준
 - [ ] 설정 파싱이 Zod 스키마 규칙을 따른다.
 - [ ] 이메일 설정은 조건부로만 활성화된다.
