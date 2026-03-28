@@ -9,6 +9,9 @@ export type AppErrorCode =
   | 'OCR_TIMEOUT'
   | 'OCR_TEXT_NOT_FOUND'
   | 'OCR_EXTRACTION_FAILED'
+  | 'DEPOSIT_CHARGE_FAILED'
+  | 'DEPOSIT_VERIFICATION_FAILED'
+  | 'KEYPAD_OCR_FAILED'
   | 'UNKNOWN_UNCLASSIFIED';
 
 export type AppErrorCategory =
