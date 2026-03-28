@@ -31,6 +31,10 @@ const configSchema = z.object({
   headed: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
   /** CI 환경 여부 */
   ci: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
+  /** 예치금 충전 비밀번호 (6자리 숫자) */
+  depositPassword: z.string().regex(/^\d{6}$/).optional(),
+  /** 예치금 충전 금액 */
+  depositAmount: z.coerce.number().int().positive().optional(),
 });
 
 /**
@@ -64,6 +68,8 @@ function loadConfig(): Config {
     } : undefined,
     headed: process.env.HEADED,
     ci: process.env.CI,
+    depositPassword: process.env.DEPOSIT_PASSWORD,
+    depositAmount: process.env.DEPOSIT_AMOUNT,
   });
 
   if (!result.success) {

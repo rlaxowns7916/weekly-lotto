@@ -7,7 +7,7 @@
 import type { PurchasedTicket } from '../domain/ticket.js';
 import { getModeLabel } from '../domain/ticket.js';
 import { formatDateKorean } from '../../shared/utils/date.js';
-import { escapeHtml } from '../../shared/utils/html.js';
+import { buildFailureEmailTemplate, type EmailTemplateResult } from '../../shared/utils/html.js';
 
 /**
  * 번호에 따른 배경색 반환
@@ -142,72 +142,13 @@ weekly-lotto 자동화 시스템
 /**
  * 구매 실패 이메일 템플릿
  */
-export function purchaseFailureTemplate(error: string): { subject: string; html: string; text: string } {
-  const subject = '[로또 구매 실패] 확인이 필요합니다';
-
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 20px; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <!-- Header -->
-    <tr>
-      <td style="background: linear-gradient(135deg, #f44336 0%, #e91e63 100%); padding: 24px; text-align: center;">
-        <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: bold;">로또 6/45 구매 실패</h1>
-      </td>
-    </tr>
-    <!-- Content -->
-    <tr>
-      <td style="padding: 24px;">
-        <p style="text-align: center; font-size: 18px; color: #f44336; margin: 0 0 24px 0; font-weight: 500;">
-          구매 중 오류가 발생했습니다.
-        </p>
-
-        <!-- Error Box -->
-        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #fff5f5; border: 2px dashed #f44336; border-radius: 8px; margin: 16px 0;">
-          <tr>
-            <td style="padding: 20px;">
-              <div style="color: #666; margin-bottom: 8px; font-size: 14px;">오류 내용:</div>
-              <div style="color: #f44336; word-break: break-all; font-size: 14px;">${escapeHtml(error)}</div>
-            </td>
-          </tr>
-        </table>
-
-        <p style="margin-top: 24px; color: #666; font-size: 14px; text-align: center;">
-          동행복권 사이트에 직접 로그인하여 구매 상태를 확인해주세요.
-        </p>
-      </td>
-    </tr>
-    <!-- Footer -->
-    <tr>
-      <td style="background-color: #f8f9fa; padding: 16px 24px; text-align: center; font-size: 12px; color: #666;">
-        <p style="margin: 0;">이 이메일은 weekly-lotto 자동화 시스템에서 발송되었습니다.</p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-`;
-
-  const text = `
-[로또 6/45 구매 실패]
-
-구매 중 오류가 발생했습니다.
-
-오류 내용:
-${error}
-
-동행복권 사이트에 직접 로그인하여 구매 상태를 확인해주세요.
-
----
-weekly-lotto 자동화 시스템
-`;
-
-  return { subject, html, text };
+export function purchaseFailureTemplate(error: string): EmailTemplateResult {
+  return buildFailureEmailTemplate({
+    title: '로또 6/45 구매 실패',
+    subject: '[로또 구매 실패] 확인이 필요합니다',
+    guidanceText: '동행복권 사이트에 직접 로그인하여 구매 상태를 확인해주세요.',
+    errorSummary: error,
+  });
 }
 
 /**

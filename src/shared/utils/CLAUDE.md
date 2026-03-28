@@ -7,6 +7,8 @@ Schema-Version: SRTE-DOCS-1
 
 ## 기능 범위/비범위
 - 포함: `withRetry`, `parseSaleDate`, `isWithinMinutes`, `formatDateKorean`, `isToday`, `formatDateDot`, `escapeHtml`.
+- 포함: `buildFailureEmailTemplate` 공통 실패 이메일 HTML 빌더.
+- 포함: `handleCommandFailure` 공통 커맨드 실패 처리(스크린샷/HTML/OCR 아티팩트 수집 → 로깅 → 이메일 전송 → exit).
 - 포함: OCR 텍스트 힌트 -> 운영 에러 코드 매핑 유틸.
 - 포함: 지수 백오프 + 지터 재시도 정책.
 - 비포함: 브라우저 제어, 네트워크 요청, 도메인 판정 로직.
@@ -67,3 +69,5 @@ flowchart LR
 - [ ] HTML 이스케이프 함수가 특수문자 치환을 수행한다.
 - [ ] `withRetry` 최종 실패에 `retry.lastErrorMessage`와 분류 코드가 포함된다.
 - [ ] OCR 힌트 매핑이 `UNKNOWN_UNCLASSIFIED` fallback을 포함해 결정형으로 동작한다.
+- [ ] `buildFailureEmailTemplate`이 모든 도메인 실패 이메일에서 공통 사용된다.
+- [ ] `handleCommandFailure`가 모든 커맨드의 catch 블록에서 공통 사용된다.

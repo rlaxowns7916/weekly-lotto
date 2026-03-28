@@ -1,0 +1,68 @@
+name: 예치금 충전
+
+on:
+  schedule:
+    # 매주 일요일 00:00 UTC (09:00 KST)
+    - cron: '0 0 * * 0'
+
+  # 수동 실행 가능
+  workflow_dispatch:
+
+jobs:
+  charge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Create .env file
+        run: |
+          {
+            printf 'LOTTO_USERNAME="%s"\n' "$LOTTO_USERNAME"
+            printf 'LOTTO_PASSWORD="%s"\n' "$LOTTO_PASSWORD"
+            printf 'DEPOSIT_PASSWORD="%s"\n' "$DEPOSIT_PASSWORD"
+            printf 'DEPOSIT_AMOUNT="%s"\n' "$DEPOSIT_AMOUNT"
+            printf 'LOTTO_EMAIL_SMTP_HOST="%s"\n' "$LOTTO_EMAIL_SMTP_HOST"
+            printf 'LOTTO_EMAIL_SMTP_PORT="%s"\n' "$LOTTO_EMAIL_SMTP_PORT"
+            printf 'LOTTO_EMAIL_USERNAME="%s"\n' "$LOTTO_EMAIL_USERNAME"
+            printf 'LOTTO_EMAIL_PASSWORD="%s"\n' "$LOTTO_EMAIL_PASSWORD"
+            printf 'LOTTO_EMAIL_FROM="%s"\n' "$LOTTO_EMAIL_FROM"
+            printf 'LOTTO_EMAIL_TO="%s"\n' "$LOTTO_EMAIL_TO"
+            printf 'DRY_RUN=false\n'
+          } > .env
+        env:
+          LOTTO_USERNAME: ${{ secrets.LOTTO_USERNAME }}
+          LOTTO_PASSWORD: ${{ secrets.LOTTO_PASSWORD }}
+          DEPOSIT_PASSWORD: ${{ secrets.DEPOSIT_PASSWORD }}
+          DEPOSIT_AMOUNT: ${{ secrets.DEPOSIT_AMOUNT }}
+          LOTTO_EMAIL_SMTP_HOST: ${{ secrets.LOTTO_EMAIL_SMTP_HOST }}
+          LOTTO_EMAIL_SMTP_PORT: ${{ secrets.LOTTO_EMAIL_SMTP_PORT }}
+          LOTTO_EMAIL_USERNAME: ${{ secrets.LOTTO_EMAIL_USERNAME }}
+          LOTTO_EMAIL_PASSWORD: ${{ secrets.LOTTO_EMAIL_PASSWORD }}
+          LOTTO_EMAIL_FROM: ${{ secrets.LOTTO_EMAIL_FROM }}
+          LOTTO_EMAIL_TO: ${{ secrets.LOTTO_EMAIL_TO }}
+
+      - name: 예치금 충전 실행 (headless 모드)
+        run: npm run deposit:charge
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deposit-error-screenshots
+          path: screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
