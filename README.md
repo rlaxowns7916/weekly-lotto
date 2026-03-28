@@ -49,6 +49,8 @@ Repository Settings > Secrets and variables > Actions에서 설정:
 |------|------|------|
 | `LOTTO_USERNAME` | 동행복권 로그인 아이디 | O |
 | `LOTTO_PASSWORD` | 동행복권 로그인 비밀번호 | O |
+| `DRY_RUN` | 실제 구매/충전 없이 테스트 (기본값: true) | X |
+| `HEADED` | 브라우저 표시 여부 (기본값: false) | X |
 
 ### 예치금 충전
 
@@ -209,6 +211,9 @@ npm run test:e2e
 # 브라우저 표시하며 E2E 실행
 npm run test:e2e:headed
 
+# Playwright UI 모드로 E2E 실행
+npm run test:e2e:ui
+
 # 특정 테스트 파일 실행
 npx playwright test tests/lotto645.spec.ts
 
@@ -219,12 +224,24 @@ npm run typecheck
 npm run lint
 ```
 
-## CI/CD
+## GitHub Actions 워크플로우
 
-PR 및 main 브랜치 푸시 시 자동으로 CI가 실행됩니다.
+| 파일 | 이름 | 트리거 |
+|------|------|--------|
+| `ci.yml` | CI | PR / main 브랜치 푸시 |
+| `lotto-buy.yml` | 로또645 구매 | 월~금 09:00 KST (cron) / 수동 |
+| `lotto-check.yml` | 로또645 당첨 확인 | 토요일 22:00 KST (cron) / 수동 |
+| `pension-buy.yml` | 연금복권720+ 구매 | 월~금 10:00 KST (cron) / 수동 |
+| `pension-check.yml` | 연금복권720 당첨 확인 | 목요일 21:00 KST (cron) / 수동 |
+| `deposit-charge.yml` | 예치금 충전 | 일요일 09:00 KST (cron) / 수동 |
+| `auto-commit.yml` | Auto Commit | 일요일 09:00 KST (cron) / 수동 |
+
+### CI
+
+PR 및 main 브랜치 푸시 시 자동으로 실행됩니다.
 
 - **Lint & Type Check**: ESLint + TypeScript 타입 검사
-- **E2E Tests**: Playwright 전체 테스트 실행 (모바일 에뮬레이션)
+- **E2E Tests**: Playwright 전체 테스트 실행 (모바일 에뮬레이션, xvfb)
 
 ## 에러 코드
 
@@ -235,8 +252,14 @@ PR 및 main 브랜치 푸시 시 자동으로 CI가 실행됩니다.
 | `AUTH_INVALID_CREDENTIALS` | AUTH | 로그인 실패 (아이디/비밀번호 오류) |
 | `NETWORK_NAVIGATION_TIMEOUT` | NETWORK | 페이지 로딩 타임아웃 |
 | `DOM_SELECTOR_NOT_VISIBLE` | DOM | UI 요소를 찾을 수 없음 |
+| `PARSE_FORMAT_INVALID` | PARSE | 데이터 파싱/포맷 오류 |
 | `PURCHASE_VERIFICATION_FAILED` | BUSINESS | 구매 후 검증 실패 |
 | `DEPOSIT_CHARGE_FAILED` | BUSINESS | 예치금 충전 실패 |
 | `DEPOSIT_VERIFICATION_FAILED` | BUSINESS | 충전 내역 검증 실패 |
-| `KEYPAD_OCR_FAILED` | OCR | 키패드 숫자 인식 실패 |
 | `EMAIL_SEND_FAILED` | EMAIL | 이메일 전송 실패 |
+| `OCR_ENGINE_UNAVAILABLE` | OCR | Tesseract OCR 엔진 초기화 실패 |
+| `OCR_TIMEOUT` | OCR | OCR 처리 타임아웃 |
+| `OCR_TEXT_NOT_FOUND` | OCR | OCR 텍스트 인식 결과 없음 |
+| `OCR_EXTRACTION_FAILED` | OCR | OCR 추출 실패 |
+| `KEYPAD_OCR_FAILED` | OCR | 키패드 숫자 인식 실패 |
+| `UNKNOWN_UNCLASSIFIED` | UNKNOWN | 미분류 오류 |

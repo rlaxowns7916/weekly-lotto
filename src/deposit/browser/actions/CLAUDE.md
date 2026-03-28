@@ -20,7 +20,7 @@ Schema-Version: SRTE-DOCS-1
 - 필수/옵션:
   - `Page`는 필수.
   - `dryRun`은 옵션(기본값 `true`).
-  - `recognizer`는 옵션(기본값 `TesseractKeypadRecognizer`).
+  - `recognizer`는 `recognizeKeypad` 함수에서 옵션(기본값 `TesseractKeypadRecognizer`). `chargeDeposit`는 내부에서 직접 생성.
 - 유효성 규칙:
   - 키패드 인식 결과는 10개 숫자 모두 confidence >= 0.70일 때 유효.
   - 비밀번호의 각 숫자가 `KeypadDigitMap`에 존재해야 입력 가능.
