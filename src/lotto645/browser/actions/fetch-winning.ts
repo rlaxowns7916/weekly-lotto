@@ -6,8 +6,7 @@
 
 import type { Page } from 'playwright';
 import type { WinningNumbers } from '../../domain/winning.js';
-import { saveErrorScreenshot } from '../../../shared/browser/context.js';
-import { AppError, formatErrorSummary } from '../../../shared/utils/error.js';
+import { AppError } from '../../../shared/utils/error.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
@@ -21,7 +20,7 @@ const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
  * 메인 페이지의 Lotto 6/45 슬라이더에서 가장 최근 회차 정보를 파싱합니다.
  *
  * @param page Playwright Page
- * @returns 당첨 번호 정보 (실패 시 null)
+ * @returns 당첨 번호 정보 (데이터 없음 시 null, 에러 시 throw)
  */
 export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumbers | null> {
   return await withRetry(
@@ -59,11 +58,7 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
       baseDelayMs: 2000,
       maxDelayMs: 10000,
     }
-  ).catch(async (error) => {
-    await saveErrorScreenshot(page, 'fetch-winning-error');
-    console.error(`당첨 번호 조회 오류: ${formatErrorSummary(error)}`);
-    return null;
-  });
+  );
 }
 
 /**
