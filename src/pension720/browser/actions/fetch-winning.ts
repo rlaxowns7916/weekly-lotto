@@ -8,8 +8,7 @@ import type { Page } from 'playwright';
 import type { PensionWinningNumbers } from '../../domain/winning.js';
 import type { PensionGroup } from '../../domain/ticket.js';
 import { digitsToString } from '../../domain/winning.js';
-import { saveErrorScreenshot } from '../../../shared/browser/context.js';
-import { AppError, formatErrorSummary } from '../../../shared/utils/error.js';
+import { AppError } from '../../../shared/utils/error.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
@@ -21,7 +20,7 @@ const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
  * 메인 페이지에서 최신 연금복권 720+ 당첨 번호 조회
  *
  * @param page Playwright Page
- * @returns 당첨 번호 정보 (실패 시 null)
+ * @returns 당첨 번호 정보 (데이터 없음 시 null, 에러 시 throw)
  */
 export async function fetchLatestPensionWinning(page: Page): Promise<PensionWinningNumbers | null> {
   return await withRetry(
@@ -59,11 +58,7 @@ export async function fetchLatestPensionWinning(page: Page): Promise<PensionWinn
       baseDelayMs: 2000,
       maxDelayMs: 10000,
     }
-  ).catch(async (error) => {
-    await saveErrorScreenshot(page, 'fetch-pension-winning-error');
-    console.error(`연금복권 당첨 번호 조회 오류: ${formatErrorSummary(error)}`);
-    return null;
-  });
+  );
 }
 
 /**
