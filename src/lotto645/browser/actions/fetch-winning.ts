@@ -1,12 +1,13 @@
 /**
  * 당첨 번호 조회 모듈
  *
- * 동행복권 로또 6/45 추첨결과 페이지에서 최근 회차 당첨 번호를 가져옵니다.
+ * 동행복권 로또 6/45 추첨결과 페이지에서 최근 회차 당첨 번호 및 등수별 금액을 가져옵니다.
  */
 
 import type { Page } from 'playwright';
-import type { WinningNumbers } from '../../domain/winning.js';
+import type { PrizeInfo, WinningNumbers, WinningRank } from '../../domain/winning.js';
 import { AppError } from '../../../shared/utils/error.js';
+import { parseKrw } from '../../../shared/utils/format.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
@@ -16,6 +17,14 @@ import { withRetry } from '../../../shared/utils/retry.js';
  * 추첨결과는 `/lt645/result` 경로에서 `lt645Swiper` 컴포넌트로 제공된다.
  */
 const RESULT_PAGE_URL = 'https://www.dhlottery.co.kr/lt645/result';
+
+const PARSED_RANKS: ReadonlyArray<{ rank: WinningRank; n: 1 | 2 | 3 | 4 | 5 }> = [
+  { rank: 'rank1', n: 1 },
+  { rank: 'rank2', n: 2 },
+  { rank: 'rank3', n: 3 },
+  { rank: 'rank4', n: 4 },
+  { rank: 'rank5', n: 5 },
+];
 
 /**
  * 추첨결과 페이지에서 최신 당첨 번호 조회
@@ -34,21 +43,12 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
       const activeSlide = page.locator('.lt645Swiper .swiper-slide-active');
       const isVisible = await activeSlide.isVisible().catch(() => false);
 
-      if (!isVisible) {
-        const allSlides = page.locator('.lt645Swiper .swiper-slide');
-        const count = await allSlides.count();
-        if (count === 0) {
-          throw new AppError({
-            code: 'DOM_SELECTOR_NOT_VISIBLE',
-            category: 'DOM',
-            retryable: false,
-            message: '당첨 번호 슬라이드를 찾을 수 없습니다',
-          });
-        }
-        return await parseWinningSlide(allSlides.nth(count - 1));
-      }
+      const slide = isVisible ? activeSlide : await pickFallbackSlide(page);
+      const winning = await parseWinningSlide(slide);
+      if (!winning) return null;
 
-      return await parseWinningSlide(activeSlide);
+      const prizes = await parsePrizes(page);
+      return prizes ? { ...winning, prizes } : winning;
     },
     {
       maxRetries: 3,
@@ -56,6 +56,20 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
       maxDelayMs: 10000,
     }
   );
+}
+
+async function pickFallbackSlide(page: Page): Promise<ReturnType<Page['locator']>> {
+  const allSlides = page.locator('.lt645Swiper .swiper-slide');
+  const count = await allSlides.count();
+  if (count === 0) {
+    throw new AppError({
+      code: 'DOM_SELECTOR_NOT_VISIBLE',
+      category: 'DOM',
+      retryable: false,
+      message: '당첨 번호 슬라이드를 찾을 수 없습니다',
+    });
+  }
+  return allSlides.nth(count - 1);
 }
 
 /**
@@ -121,6 +135,42 @@ async function parseWinningSlide(slide: ReturnType<Page['locator']>): Promise<Wi
     };
   } catch (error) {
     console.error('슬라이드 파싱 오류:', error);
+    return null;
+  }
+}
+
+/**
+ * 추첨결과 페이지의 등위별 당첨금 테이블 파싱
+ *
+ * 등위 셀 ID 규약 (1게임당 당첨금은 `WnAmt`, 등위별 총액은 `SumWnAmt`):
+ *   #rnk{N}WnAmt     — 1게임당 당첨금 (예: "1,830,801,165원")
+ *   #rnk{N}SumWnAmt  — 등위별 총 당첨금
+ *   #rnk{N}WnNope    — 당첨 게임 수
+ *
+ * 1~5등의 셀이 모두 비어있거나 0이면 null을 반환해 호출부가 우아하게 폴백하도록 한다.
+ */
+async function parsePrizes(page: Page): Promise<Map<WinningRank, PrizeInfo> | null> {
+  try {
+    const prizes = new Map<WinningRank, PrizeInfo>();
+
+    for (const { rank, n } of PARSED_RANKS) {
+      const amountPerWinner = parseKrw(await page.locator(`#rnk${n}WnAmt`).first().textContent().catch(() => null));
+      const totalAmount = parseKrw(await page.locator(`#rnk${n}SumWnAmt`).first().textContent().catch(() => null));
+      const winnerCountText = await page.locator(`#rnk${n}WnNope`).first().textContent().catch(() => null);
+      const winnerCount = winnerCountText ? parseInt(winnerCountText.replace(/[^\d]/g, ''), 10) || 0 : 0;
+
+      prizes.set(rank, { rank, totalAmount, winnerCount, amountPerWinner });
+    }
+
+    const hasAnyAmount = Array.from(prizes.values()).some((p) => p.amountPerWinner > 0);
+    if (!hasAnyAmount) {
+      console.warn('등위별 당첨금 테이블이 비어있어 무시합니다');
+      return null;
+    }
+
+    return prizes;
+  } catch (error) {
+    console.warn('등위별 당첨금 파싱 실패, 금액 정보 없이 진행합니다:', error);
     return null;
   }
 }

@@ -7,6 +7,7 @@
 import type { PurchasedTicket } from '../domain/ticket.js';
 import { getModeLabel } from '../domain/ticket.js';
 import { formatDateKorean } from '../../shared/utils/date.js';
+import { formatKrw } from '../../shared/utils/format.js';
 import { buildFailureEmailTemplate, type EmailTemplateResult } from '../../shared/utils/html.js';
 
 /**
@@ -167,9 +168,12 @@ interface WinningResultForEmail {
     isWinner: boolean;
     matchingNumbers: number[];
     bonusMatch: boolean;
+    prizeAmount?: number;
   }>;
   winnerCount: number;
   totalCount: number;
+  totalUserPrize?: number;
+  prizesAvailable?: boolean;
   summary: string;
 }
 
@@ -212,12 +216,18 @@ export function winningResultTemplate(result: WinningResultForEmail): { subject:
     ? `[로또 당첨!] ${result.round}회 - ${result.winnerCount}장 당첨!`
     : `[로또 결과] ${result.round}회 - ${result.totalCount}장 낙첨`;
 
+  const prizesAvailable = result.prizesAvailable ?? false;
+
   // 티켓 결과 HTML 생성
   const ticketsHtml = result.tickets
     .map((t) => {
       const icon = t.isWinner ? '&#127881;' : '&#10060;'; // 🎉 or ❌
       const resultColor = t.isWinner ? '#4caf50' : '#999';
       const bgColor = t.isWinner ? '#f0fff0' : '#fafafa';
+      const prizeAmount = t.prizeAmount ?? 0;
+      const prizeBadge = prizesAvailable
+        ? `<span style="margin-left: 12px; padding: 2px 10px; border-radius: 12px; background-color: ${t.isWinner ? '#fff8e1' : '#f0f0f0'}; color: ${t.isWinner ? '#f57c00' : '#999'}; font-size: 12px; font-weight: 600;">${formatKrw(prizeAmount)}</span>`
+        : '';
 
       return `
       <tr>
@@ -226,6 +236,7 @@ export function winningResultTemplate(result: WinningResultForEmail): { subject:
             <span style="font-size: 18px;">${icon}</span>
             <strong style="margin-left: 8px;">${t.ticket.slot}슬롯</strong>
             <span style="color: ${resultColor}; font-weight: bold; margin-left: 12px;">${t.rankLabel}</span>
+            ${prizeBadge}
           </div>
           <div style="margin: 12px 0;">
             ${renderNumbersWithHighlight(
@@ -245,6 +256,22 @@ export function winningResultTemplate(result: WinningResultForEmail): { subject:
     `;
     })
     .join('');
+
+  const totalPrize = result.totalUserPrize ?? 0;
+  const totalPrizeRow = prizesAvailable && result.totalCount > 0
+    ? `
+    <tr>
+      <td style="padding: 16px 24px; background-color: ${totalPrize > 0 ? '#fff8e1' : '#f8f9fa'}; border-top: 2px solid ${totalPrize > 0 ? '#ffd700' : '#eee'};">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+          <tr>
+            <td style="color: #666; font-size: 14px;">회차 총 당첨금</td>
+            <td style="text-align: right; font-size: 18px; font-weight: bold; color: ${totalPrize > 0 ? '#f57c00' : '#999'};">${formatKrw(totalPrize)}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    `
+    : '';
 
   const html = `
 <!DOCTYPE html>
@@ -294,6 +321,7 @@ export function winningResultTemplate(result: WinningResultForEmail): { subject:
             </td>
           </tr>
           ${ticketsHtml}
+          ${totalPrizeRow}
         </table>
       </td>
     </tr>
@@ -317,9 +345,14 @@ export function winningResultTemplate(result: WinningResultForEmail): { subject:
       const matchInfo = t.matchingNumbers.length > 0
         ? `(일치: ${t.matchingNumbers.join(', ')}${t.bonusMatch ? ' +보너스' : ''})`
         : '';
-      return `${icon} [${t.ticket.slot}] ${t.ticket.numbers.join(', ')} → ${t.rankLabel} ${matchInfo}`;
+      const prizeText = prizesAvailable ? ` / ${formatKrw(t.prizeAmount ?? 0)}` : '';
+      return `${icon} [${t.ticket.slot}] ${t.ticket.numbers.join(', ')} → ${t.rankLabel}${prizeText} ${matchInfo}`;
     })
     .join('\n');
+
+  const totalPrizeLine = prizesAvailable && result.totalCount > 0
+    ? `\n회차 총 당첨금: ${formatKrw(totalPrize)}\n`
+    : '';
 
   const text = `
 [로또 6/45 당첨 확인 결과]
@@ -327,7 +360,7 @@ export function winningResultTemplate(result: WinningResultForEmail): { subject:
 ${result.round}회 당첨 번호: ${result.winningNumbers.numbers.join(', ')} + 보너스 ${result.winningNumbers.bonusNumber}
 
 ${result.summary}
-
+${totalPrizeLine}
 내 티켓 (${result.totalCount}장):
 ${ticketsText}
 

@@ -4,7 +4,8 @@
 
 import type { PurchasedPensionTicket } from '../domain/ticket.js';
 import type { PensionWinningNumbers, PensionWinningRank } from '../domain/winning.js';
-import { checkPensionWinning, getRankLabel, isWinning } from '../domain/winning.js';
+import { checkPensionWinning, getPrizeInfo, getRankLabel, isWinning } from '../domain/winning.js';
+import { formatKrw } from '../../shared/utils/format.js';
 
 /**
  * 개별 티켓 당첨 결과
@@ -16,6 +17,10 @@ export interface PensionTicketWinningResult {
   isWinner: boolean;
   /** 일치하는 자릿수 정보 */
   matchInfo: string;
+  /** 등수별 당첨금 표시 문자열 (예: "월 700만원 X 20년", "5만원", "-") */
+  prizeDisplay: string;
+  /** 일시금 (원). 1등/2등/보너스(연금형)는 null */
+  prizeLumpSum: number | null;
 }
 
 /**
@@ -27,6 +32,10 @@ export interface PensionWinningCheckResult {
   tickets: PensionTicketWinningResult[];
   winnerCount: number;
   totalCount: number;
+  /** 일시금 합계 (원) — 3~7등 lumpSum 합산 */
+  totalLumpSum: number;
+  /** 월지급 연금형 당첨 건수 (1등/2등/보너스) */
+  monthlyAnnuityCount: number;
   summary: string;
 }
 
@@ -71,6 +80,7 @@ export function checkTicketsWinning(
   const results: PensionTicketWinningResult[] = tickets.map((ticket) => {
     const rank = checkPensionWinning(ticket.pensionNumber, winningNumbers);
     const matchInfo = getMatchInfo(ticket, rank);
+    const prize = getPrizeInfo(rank);
 
     return {
       ticket,
@@ -78,11 +88,15 @@ export function checkTicketsWinning(
       rankLabel: getRankLabel(rank),
       isWinner: isWinning(rank),
       matchInfo,
+      prizeDisplay: prize.display,
+      prizeLumpSum: prize.lumpSum,
     };
   });
 
   const winnerCount = results.filter((r) => r.isWinner).length;
   const totalCount = tickets.length;
+  const totalLumpSum = results.reduce((sum, r) => sum + (r.prizeLumpSum ?? 0), 0);
+  const monthlyAnnuityCount = results.filter((r) => r.isWinner && r.prizeLumpSum === null).length;
 
   let summary: string;
   if (winnerCount === 0) {
@@ -100,7 +114,12 @@ export function checkTicketsWinning(
       .map(([rank, count]) => `${getRankLabel(rank)} ${count}장`)
       .join(', ');
 
-    summary = `${winningNumbers.round}회 당첨 결과: ${totalCount}장 중 ${winnerCount}장 당첨! (${rankSummary})`;
+    const prizeBits: string[] = [];
+    if (totalLumpSum > 0) prizeBits.push(`일시금 ${formatKrw(totalLumpSum)}`);
+    if (monthlyAnnuityCount > 0) prizeBits.push(`월지급 ${monthlyAnnuityCount}건`);
+    const prizeSuffix = prizeBits.length > 0 ? ` / ${prizeBits.join(' + ')}` : '';
+
+    summary = `${winningNumbers.round}회 당첨 결과: ${totalCount}장 중 ${winnerCount}장 당첨! (${rankSummary})${prizeSuffix}`;
   }
 
   return {
@@ -109,6 +128,8 @@ export function checkTicketsWinning(
     tickets: results,
     winnerCount,
     totalCount,
+    totalLumpSum,
+    monthlyAnnuityCount,
     summary,
   };
 }
@@ -130,11 +151,17 @@ export function printWinningResult(result: PensionWinningCheckResult): void {
   result.tickets.forEach((t) => {
     const icon = t.isWinner ? '🎉' : '❌';
     console.log(
-      `${icon} [${t.ticket.slot}] ${t.ticket.pensionNumber.group}조 ${t.ticket.pensionNumber.number} → ${t.rankLabel} (${t.matchInfo})`
+      `${icon} [${t.ticket.slot}] ${t.ticket.pensionNumber.group}조 ${t.ticket.pensionNumber.number} → ${t.rankLabel} / ${t.prizeDisplay} (${t.matchInfo})`
     );
   });
 
   console.log('-'.repeat(50));
+  if (result.totalLumpSum > 0) {
+    console.log(`💵 회차 일시금 합계: ${formatKrw(result.totalLumpSum)}`);
+  }
+  if (result.monthlyAnnuityCount > 0) {
+    console.log(`💵 회차 월지급 연금형 당첨: ${result.monthlyAnnuityCount}건`);
+  }
   console.log(`\n${result.summary}`);
   console.log('='.repeat(50) + '\n');
 }

@@ -7,6 +7,7 @@
 import type { PurchasedTicket } from '../domain/ticket.js';
 import type { WinningNumbers, WinningRank } from '../domain/winning.js';
 import { checkWinning, getMatchingNumbers, getRankLabel, isWinning } from '../domain/winning.js';
+import { formatKrw } from '../../shared/utils/format.js';
 
 /**
  * 개별 티켓 당첨 결과
@@ -24,6 +25,8 @@ export interface TicketWinningResult {
   matchingNumbers: number[];
   /** 보너스 번호 일치 여부 */
   bonusMatch: boolean;
+  /** 1게임당 당첨금 (낙첨이면 0, 회차 금액 정보가 없으면 0) */
+  prizeAmount: number;
 }
 
 /**
@@ -40,25 +43,37 @@ export interface WinningCheckResult {
   winnerCount: number;
   /** 총 티켓 수 */
   totalCount: number;
+  /** 사용자 회차 총 당첨금 (모든 슬롯 prizeAmount 합) */
+  totalUserPrize: number;
+  /** 등위별 1게임당 당첨금 표시 가능 여부 (false면 회차 금액 미수집) */
+  prizesAvailable: boolean;
   /** 요약 메시지 */
   summary: string;
+}
+
+function getPrizeAmount(rank: WinningRank, winningNumbers: WinningNumbers): number {
+  if (rank === 'none') return 0;
+  return winningNumbers.prizes?.get(rank)?.amountPerWinner ?? 0;
 }
 
 /**
  * 여러 티켓의 당첨 여부 확인
  *
  * @param tickets 구매한 티켓 목록
- * @param winningNumbers 당첨 번호 정보
- * @returns 당첨 확인 결과
+ * @param winningNumbers 당첨 번호 정보 (선택적으로 등위별 금액 포함)
+ * @returns 당첨 확인 결과 (각 티켓별 prizeAmount + 회차 합계 totalUserPrize)
  */
 export function checkTicketsWinning(
   tickets: PurchasedTicket[],
   winningNumbers: WinningNumbers
 ): WinningCheckResult {
+  const prizesAvailable = !!winningNumbers.prizes && winningNumbers.prizes.size > 0;
+
   const results: TicketWinningResult[] = tickets.map((ticket) => {
     const rank = checkWinning(ticket.numbers, winningNumbers);
     const matchingNumbers = getMatchingNumbers(ticket.numbers, winningNumbers.numbers);
     const bonusMatch = ticket.numbers.includes(winningNumbers.bonusNumber);
+    const prizeAmount = getPrizeAmount(rank, winningNumbers);
 
     return {
       ticket,
@@ -67,11 +82,13 @@ export function checkTicketsWinning(
       isWinner: isWinning(rank),
       matchingNumbers,
       bonusMatch,
+      prizeAmount,
     };
   });
 
   const winnerCount = results.filter((r) => r.isWinner).length;
   const totalCount = tickets.length;
+  const totalUserPrize = results.reduce((sum, r) => sum + r.prizeAmount, 0);
 
   // 요약 메시지 생성
   let summary: string;
@@ -90,7 +107,8 @@ export function checkTicketsWinning(
       .map(([rank, count]) => `${getRankLabel(rank)} ${count}장`)
       .join(', ');
 
-    summary = `${winningNumbers.round}회 당첨 결과: ${totalCount}장 중 ${winnerCount}장 당첨! (${rankSummary})`;
+    const prizeSuffix = totalUserPrize > 0 ? ` / 총 ${formatKrw(totalUserPrize)}` : '';
+    summary = `${winningNumbers.round}회 당첨 결과: ${totalCount}장 중 ${winnerCount}장 당첨! (${rankSummary})${prizeSuffix}`;
   }
 
   return {
@@ -99,6 +117,8 @@ export function checkTicketsWinning(
     tickets: results,
     winnerCount,
     totalCount,
+    totalUserPrize,
+    prizesAvailable,
     summary,
   };
 }
@@ -113,6 +133,15 @@ export function printWinningResult(result: WinningCheckResult): void {
 
   console.log(`\n🎱 당첨 번호: ${result.winningNumbers.numbers.join(', ')} + 보너스 ${result.winningNumbers.bonusNumber}`);
 
+  if (result.prizesAvailable) {
+    console.log('\n💰 회차 등위별 1게임당 당첨금:');
+    (['rank1', 'rank2', 'rank3', 'rank4', 'rank5'] as const).forEach((r) => {
+      const info = result.winningNumbers.prizes?.get(r);
+      if (!info) return;
+      console.log(`   ${getRankLabel(r)}: ${formatKrw(info.amountPerWinner)} (당첨 ${info.winnerCount.toLocaleString('ko-KR')}게임)`);
+    });
+  }
+
   console.log(`\n📊 내 티켓 (${result.totalCount}장):`);
   console.log('-'.repeat(50));
 
@@ -122,12 +151,16 @@ export function printWinningResult(result: WinningCheckResult): void {
       : '(일치 없음)';
 
     const icon = t.isWinner ? '🎉' : '❌';
+    const prizeSuffix = result.prizesAvailable ? ` / ${formatKrw(t.prizeAmount)}` : '';
     console.log(
-      `${icon} [${t.ticket.slot}] ${t.ticket.numbers.join(', ')} → ${t.rankLabel} ${matchInfo}`
+      `${icon} [${t.ticket.slot}] ${t.ticket.numbers.join(', ')} → ${t.rankLabel}${prizeSuffix} ${matchInfo}`
     );
   });
 
   console.log('-'.repeat(50));
+  if (result.prizesAvailable && result.totalCount > 0) {
+    console.log(`💵 회차 총 당첨금: ${formatKrw(result.totalUserPrize)}`);
+  }
   console.log(`\n${result.summary}`);
   console.log('='.repeat(50) + '\n');
 }

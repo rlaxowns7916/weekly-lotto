@@ -156,6 +156,19 @@ test.describe('로또 6/45 당첨번호 조회', () => {
     const dateText = await activeSlide.locator('.result-date').first().textContent();
     expect(dateText).toMatch(/\d{4}\.\d{2}\.\d{2}/);
   });
+
+  test('등위별 1게임당 당첨금 테이블이 노출된다', async ({ page }) => {
+    for (const n of [1, 2, 3, 4, 5]) {
+      const cell = page.locator(`#rnk${n}WnAmt`).first();
+      await expect(cell).toBeAttached({ timeout: 30000 });
+      const text = await cell.textContent();
+      expect(text).toMatch(/\d/);
+      expect(text).toContain('원');
+    }
+    // 5등은 회차 변동 없는 고정 5,000원
+    const rnk5 = await page.locator('#rnk5WnAmt').first().textContent();
+    expect(rnk5).toContain('5,000');
+  });
 });
 
 // ============================================================

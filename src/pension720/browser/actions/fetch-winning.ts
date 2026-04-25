@@ -1,7 +1,10 @@
 /**
  * 연금복권 720+ 당첨 번호 조회 모듈
  *
- * 동행복권 메인 페이지에서 최근 회차 당첨 번호를 가져옵니다.
+ * 동행복권 연금복권 720+ 추첨결과 페이지에서 최근 회차 당첨 번호를 가져옵니다.
+ *
+ * 2026-04 기준: `/main`은 간소화 페이지로 전환되어 더 이상 당첨 번호 슬라이더를 노출하지 않는다.
+ * 추첨결과는 `/pt720/result` 경로에서 `wf720Swiper` 컴포넌트로 제공된다.
  */
 
 import type { Page } from 'playwright';
@@ -12,12 +15,12 @@ import { AppError } from '../../../shared/utils/error.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
- * 동행복권 메인 페이지 URL
+ * 동행복권 연금복권 720+ 추첨결과 페이지 URL
  */
-const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
+const RESULT_PAGE_URL = 'https://www.dhlottery.co.kr/pt720/result';
 
 /**
- * 메인 페이지에서 최신 연금복권 720+ 당첨 번호 조회
+ * 추첨결과 페이지에서 최신 연금복권 720+ 당첨 번호 조회
  *
  * @param page Playwright Page
  * @returns 당첨 번호 정보 (데이터 없음 시 null, 에러 시 throw)
@@ -25,20 +28,16 @@ const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
 export async function fetchLatestPensionWinning(page: Page): Promise<PensionWinningNumbers | null> {
   return await withRetry(
     async () => {
-      // 메인 페이지로 이동
-      await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
+      await page.goto(RESULT_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
 
-      // 연금복권 720+ 슬라이더가 로드될 때까지 대기
-      const swiperContainer = page.locator('.swiper.wf720');
+      const swiperContainer = page.locator('.wf720Swiper');
       await swiperContainer.waitFor({ state: 'attached', timeout: 30000 });
 
-      // active 슬라이드 찾기
-      const activeSlide = page.locator('.swiper.wf720 .swiper-slide.wf720-inbox.swiper-slide-active');
+      const activeSlide = page.locator('.wf720Swiper .swiper-slide-active');
       const isVisible = await activeSlide.isVisible().catch(() => false);
 
       if (!isVisible) {
-        // active가 없으면 마지막 슬라이드 시도
-        const allSlides = page.locator('.swiper.wf720 .swiper-slide.wf720-inbox');
+        const allSlides = page.locator('.wf720Swiper .swiper-slide');
         const count = await allSlides.count();
         if (count === 0) {
           throw new AppError({
@@ -63,13 +62,26 @@ export async function fetchLatestPensionWinning(page: Page): Promise<PensionWinn
 
 /**
  * 슬라이드에서 연금복권 당첨 번호 파싱
+ *
+ * 새 DOM 구조:
+ *   .result-infoWrap
+ *     .infoWrap-topBox
+ *       .result-txt > .psltEpsd          (회차)
+ *       .result-date                      (추첨일)
+ *     .result-wfBallWrapper
+ *       .result-wfBall (1등)
+ *         .wf720-num-list
+ *           .wf-ball.pension-jo           (1등 조)
+ *           .wf-ball.wf-{1..6}n           (1등 6자리 번호)
+ *       .result-wfBall (보너스)
+ *         .wf720-num-list
+ *           .wf-ball.wf-{1..6}n           (보너스 6자리 번호)
  */
 async function parsePensionWinningSlide(
   slide: ReturnType<Page['locator']>
 ): Promise<PensionWinningNumbers | null> {
   try {
-    // 회차 추출 (예: "299회")
-    const roundText = await slide.locator('.wf720-round').textContent();
+    const roundText = await slide.locator('.psltEpsd').first().textContent();
     const roundMatch = roundText?.match(/(\d+)/);
     const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
 
@@ -78,37 +90,26 @@ async function parsePensionWinningSlide(
       return null;
     }
 
-    // 날짜 추출 (예: "2026.01.22")
-    const dateText = await slide.locator('.wf720-date').textContent();
+    const dateText = await slide.locator('.result-date').first().textContent();
     const drawDate = dateText ? parseDrawDate(dateText.trim()) : new Date();
 
-    // 1등 당첨 번호 파싱
-    const firstPrizeList = slide.locator('.wf720-list').first();
+    const winningSection = slide.locator('.result-wfBall').nth(0);
+    const bonusSection = slide.locator('.result-wfBall').nth(1);
 
-    // 조 번호 추출
-    const groupElement = firstPrizeList.locator('.pension-jo');
-    const groupText = await groupElement.textContent();
+    const groupText = await winningSection.locator('.wf-ball.pension-jo').first().textContent();
     const winningGroup = parseInt(groupText?.trim() || '0', 10) as PensionGroup;
-
     if (winningGroup < 1 || winningGroup > 5) {
       console.warn(`잘못된 조 번호: ${winningGroup}`);
       return null;
     }
 
-    // 1등 번호 추출 (6자리)
-    const winningBalls = firstPrizeList.locator('.rightArea .wf-ball');
-    const winningDigits = await extractDigits(winningBalls);
-
+    const winningDigits = await extractDigits(winningSection.locator('.wf-ball:not(.pension-jo)'));
     if (winningDigits.length !== 6) {
       console.warn(`1등 번호 자릿수 오류: ${winningDigits.length}자리`);
       return null;
     }
 
-    // 보너스 번호 파싱 (두 번째 wf720-list)
-    const bonusList = slide.locator('.wf720-list').nth(1);
-    const bonusBalls = bonusList.locator('.rightArea .wf-ball');
-    const bonusDigits = await extractDigits(bonusBalls);
-
+    const bonusDigits = await extractDigits(bonusSection.locator('.wf-ball:not(.pension-jo)'));
     if (bonusDigits.length !== 6) {
       console.warn(`보너스 번호 자릿수 오류: ${bonusDigits.length}자리`);
       return null;
@@ -135,7 +136,7 @@ async function parsePensionWinningSlide(
 }
 
 /**
- * .wf-ball 요소들에서 숫자 추출
+ * .wf-ball 요소들에서 0~9 자릿수만 추출
  */
 async function extractDigits(balls: ReturnType<Page['locator']>): Promise<number[]> {
   const digits: number[] = [];
@@ -153,7 +154,7 @@ async function extractDigits(balls: ReturnType<Page['locator']>): Promise<number
 }
 
 /**
- * 날짜 문자열 파싱 (예: "2026.01.22")
+ * 날짜 문자열 파싱 (예: "2026.04.23" 또는 "2026.04.23 추첨")
  */
 function parseDrawDate(dateStr: string): Date {
   const match = dateStr.match(/(\d{4})\.(\d{2})\.(\d{2})/);

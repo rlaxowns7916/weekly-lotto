@@ -17,7 +17,6 @@ import { fetchLatestWinningNumbers } from '../browser/actions/fetch-winning.js';
 import { checkTicketsWinning, printWinningResult } from '../services/winning-check.service.js';
 import { sendEmail, hasEmailConfig } from '../../shared/services/email.service.js';
 import { winningResultTemplate } from '../services/email.templates.js';
-import { isToday, formatDateDot } from '../../shared/utils/date.js';
 import { formatErrorSummary, getErrorDetails } from '../../shared/utils/error.js';
 import {
   buildFailureArtifacts,
@@ -45,20 +44,6 @@ async function main(): Promise<void> {
       console.log('='.repeat(50));
       console.log('\n   로또 추첨은 매주 토요일 저녁에 진행됩니다.');
       console.log('   추첨 후 다시 실행해주세요.\n');
-      return;
-    }
-
-    // 추첨일이 오늘인지 확인
-    const drawDate = winningNumbers.drawDate;
-
-    if (!isToday(drawDate)) {
-      const drawDateStr = formatDateDot(drawDate);
-      console.log(`   최신 당첨: ${winningNumbers.round}회 (${drawDateStr})`);
-      console.log('\n' + '='.repeat(50));
-      console.log('⏳ 오늘 추첨이 아닙니다.');
-      console.log('='.repeat(50));
-      console.log('\n   로또 추첨은 매주 토요일 저녁에 진행됩니다.');
-      console.log('   추첨일에 다시 실행해주세요.\n');
       return;
     }
 
