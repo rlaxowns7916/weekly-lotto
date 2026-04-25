@@ -19,6 +19,7 @@ import { buildFailureReason, waitVisibleWithReason } from './utils/failure-diagn
 
 // URL 상수 (모바일)
 const MAIN_URL = 'https://www.dhlottery.co.kr/main';
+const RESULT_URL = 'https://www.dhlottery.co.kr/lt645/result';
 const HOME_URL = 'https://www.dhlottery.co.kr/';
 const LOGIN_URL = 'https://www.dhlottery.co.kr/login';
 const PURCHASE_URL = 'https://ol.dhlottery.co.kr/olotto/game_mobile/game645.do';
@@ -114,26 +115,26 @@ test.describe('로또 6/45 당첨번호 조회', () => {
 
   test.beforeEach(async ({ page }, testInfo) => {
     attachNetworkGuard(page, testInfo);
-    await page.goto(MAIN_URL, { timeout: 120000 });
+    await page.goto(RESULT_URL, { timeout: 120000 });
     await page.waitForLoadState('domcontentloaded');
-    await skipIfSiteMaintenance(page, testInfo, '메인 페이지');
+    await skipIfSiteMaintenance(page, testInfo, '추첨결과 페이지');
   });
 
-  test('메인 페이지에서 로또 6/45 당첨번호가 표시된다', async ({ page }) => {
-    const swiperContainer = page.locator('.swiper.lt645');
+  test('추첨결과 페이지에서 로또 6/45 당첨번호가 표시된다', async ({ page }) => {
+    const swiperContainer = page.locator('.lt645Swiper');
     await expect(swiperContainer).toBeAttached({ timeout: 30000 });
   });
 
   test('당첨 번호가 1~45 범위이다', async ({ page }) => {
-    const ballElements = page.locator('.swiper.lt645 .lt645-list .lt-ball');
+    const activeSlide = page.locator('.lt645Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+
+    const ballElements = activeSlide.locator('.result-ballBox .result-ball');
     const count = await ballElements.count();
     expect(count).toBeGreaterThanOrEqual(7);
 
     const numbers: number[] = [];
     for (let i = 0; i < count; i++) {
-      const isPlus = await ballElements.nth(i).locator('img[alt="+"]').count() > 0;
-      if (isPlus) continue;
-
       const numText = await ballElements.nth(i).textContent();
       const num = parseInt(numText?.trim() || '0', 10);
       if (num >= 1 && num <= 45) numbers.push(num);
@@ -143,12 +144,16 @@ test.describe('로또 6/45 당첨번호 조회', () => {
   });
 
   test('회차 정보를 추출할 수 있다', async ({ page }) => {
-    const roundText = await page.locator('.swiper.lt645 .lt645-round').first().textContent();
-    expect(roundText).toMatch(/\d+회/);
+    const activeSlide = page.locator('.lt645Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+    const roundText = await activeSlide.locator('.ltEpsd').first().textContent();
+    expect(roundText).toMatch(/\d+/);
   });
 
   test('추첨일 정보가 표시된다', async ({ page }) => {
-    const dateText = await page.locator('.swiper.lt645 .lt645-date').first().textContent();
+    const activeSlide = page.locator('.lt645Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+    const dateText = await activeSlide.locator('.result-date').first().textContent();
     expect(dateText).toMatch(/\d{4}\.\d{2}\.\d{2}/);
   });
 });
