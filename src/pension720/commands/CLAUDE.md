@@ -20,7 +20,6 @@ Schema-Version: SRTE-DOCS-1
   - `PENSION_GROUP`과 이메일 설정은 옵션.
 - 유효성 규칙:
   - `PENSION_GROUP`은 1~5인 경우에만 적용한다.
-  - 추첨일이 당일이 아니면 당첨확인 명령은 조기 종료한다.
 - 출력 타입/필드:
   - 콘솔 로그.
   - 실패 시 `process.exit(1)`.
