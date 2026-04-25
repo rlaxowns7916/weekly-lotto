@@ -72,6 +72,41 @@ export function isWinning(rank: PensionWinningRank): boolean {
 }
 
 /**
+ * 등수별 당첨금 정보
+ *
+ * `lumpSum`이 `null`이면 일시금이 아닌 월지급 연금형 상금이며,
+ * `display` 문자열을 표시 용도로 사용한다. 회차 합계 계산에는 lumpSum만 합산한다.
+ */
+export interface PensionPrizeInfo {
+  /** 표시 문자열 (예: "월 700만원 X 20년", "5만원") */
+  display: string;
+  /** 일시금 (원). 연금형은 null */
+  lumpSum: number | null;
+}
+
+/**
+ * 연금복권 720+ 등수별 당첨금 (회차와 무관하게 고정)
+ *
+ * 출처: 동행복권 추첨결과 페이지(`/pt720/result`)의 등위 안내 테이블.
+ * 1등/2등/보너스는 월지급 연금형이라 일시금 합산 대상에서 제외된다.
+ */
+export const PENSION_PRIZES: Readonly<Record<PensionWinningRank, PensionPrizeInfo>> = {
+  rank1: { display: '월 700만원 X 20년', lumpSum: null },
+  rank2: { display: '월 100만원 X 10년', lumpSum: null },
+  bonus: { display: '월 100만원 X 10년', lumpSum: null },
+  rank3: { display: '100만원', lumpSum: 1_000_000 },
+  rank4: { display: '10만원', lumpSum: 100_000 },
+  rank5: { display: '5만원', lumpSum: 50_000 },
+  rank6: { display: '5천원', lumpSum: 5_000 },
+  rank7: { display: '1천원', lumpSum: 1_000 },
+  none: { display: '-', lumpSum: 0 },
+} as const;
+
+export function getPrizeInfo(rank: PensionWinningRank): PensionPrizeInfo {
+  return PENSION_PRIZES[rank];
+}
+
+/**
  * 번호 배열을 6자리 문자열로 변환
  */
 export function digitsToString(digits: number[]): string {

@@ -6,6 +6,7 @@ import type { PurchasedPensionTicket } from '../domain/ticket.js';
 import type { PensionWinningCheckResult } from './winning-check.service.js';
 import { getModeLabel } from '../domain/ticket.js';
 import { formatDateKorean } from '../../shared/utils/date.js';
+import { formatKrw } from '../../shared/utils/format.js';
 import { buildFailureEmailTemplate, type EmailTemplateResult } from '../../shared/utils/html.js';
 
 // formatDateKorean을 내부 alias로 사용 (기존 코드 호환성)
@@ -138,6 +139,7 @@ export function winningResultTemplate(result: PensionWinningCheckResult): { subj
       const icon = t.isWinner ? '&#127881;' : '&#10060;';
       const resultColor = t.isWinner ? '#4caf50' : '#999';
       const bgColor = t.isWinner ? '#f0fff0' : '#fafafa';
+      const prizeBadge = `<span style="margin-left: 12px; padding: 2px 10px; border-radius: 12px; background-color: ${t.isWinner ? '#fff8e1' : '#f0f0f0'}; color: ${t.isWinner ? '#f57c00' : '#999'}; font-size: 12px; font-weight: 600;">${t.prizeDisplay}</span>`;
 
       return `
       <tr>
@@ -146,6 +148,7 @@ export function winningResultTemplate(result: PensionWinningCheckResult): { subj
             <span style="font-size: 18px;">${icon}</span>
             <strong style="margin-left: 8px;">${t.ticket.slot}슬롯</strong>
             <span style="color: ${resultColor}; font-weight: bold; margin-left: 12px;">${t.rankLabel}</span>
+            ${prizeBadge}
           </div>
           <div style="margin: 12px 0; font-size: 20px; font-weight: bold;">
             ${t.ticket.pensionNumber.group}조 ${t.ticket.pensionNumber.number}
@@ -158,6 +161,24 @@ export function winningResultTemplate(result: PensionWinningCheckResult): { subj
     `;
     })
     .join('');
+
+  const prizeBits: string[] = [];
+  if (result.totalLumpSum > 0) prizeBits.push(`일시금 ${formatKrw(result.totalLumpSum)}`);
+  if (result.monthlyAnnuityCount > 0) prizeBits.push(`월지급 연금형 ${result.monthlyAnnuityCount}건`);
+  const totalPrizeRow = prizeBits.length > 0
+    ? `
+    <tr>
+      <td style="padding: 16px 24px; background-color: #fff8e1; border-top: 2px solid #ffd700;">
+        <table cellpadding="0" cellspacing="0" border="0" width="100%">
+          <tr>
+            <td style="color: #666; font-size: 14px;">회차 총 당첨</td>
+            <td style="text-align: right; font-size: 16px; font-weight: bold; color: #f57c00;">${prizeBits.join(' + ')}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    `
+    : '';
 
   const html = `
 <!DOCTYPE html>
@@ -201,6 +222,7 @@ export function winningResultTemplate(result: PensionWinningCheckResult): { subj
             </td>
           </tr>
           ${ticketsHtml}
+          ${totalPrizeRow}
         </table>
       </td>
     </tr>
@@ -218,9 +240,11 @@ export function winningResultTemplate(result: PensionWinningCheckResult): { subj
   const ticketsText = result.tickets
     .map((t) => {
       const icon = t.isWinner ? '🎉' : '❌';
-      return `${icon} [${t.ticket.slot}] ${t.ticket.pensionNumber.group}조 ${t.ticket.pensionNumber.number} → ${t.rankLabel} (${t.matchInfo})`;
+      return `${icon} [${t.ticket.slot}] ${t.ticket.pensionNumber.group}조 ${t.ticket.pensionNumber.number} → ${t.rankLabel} / ${t.prizeDisplay} (${t.matchInfo})`;
     })
     .join('\n');
+
+  const totalPrizeLine = prizeBits.length > 0 ? `\n회차 총 당첨: ${prizeBits.join(' + ')}\n` : '';
 
   const text = `
 [연금복권 720+ 당첨 확인 결과]
@@ -229,7 +253,7 @@ ${result.round}회 당첨 번호: ${result.winningNumbers.winningGroup}조 ${res
 보너스: 각조 ${result.winningNumbers.bonusNumber}
 
 ${result.summary}
-
+${totalPrizeLine}
 내 티켓 (${result.totalCount}장):
 ${ticketsText}
 

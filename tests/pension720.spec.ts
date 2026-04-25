@@ -17,6 +17,7 @@ import {
 
 // URL 상수
 const MAIN_URL = 'https://www.dhlottery.co.kr/main';
+const RESULT_URL = 'https://www.dhlottery.co.kr/pt720/result';
 const HOME_URL = 'https://www.dhlottery.co.kr/';
 const LOGIN_URL = 'https://www.dhlottery.co.kr/login';
 const PURCHASE_URL = 'https://el.dhlottery.co.kr/game_mobile/pension720/game.jsp';
@@ -100,10 +101,10 @@ function getGroupByDayOfWeek(): number {
   }
 }
 
-async function openPensionMain(page: Page, testInfo: TestInfo): Promise<void> {
-  await page.goto(MAIN_URL, { timeout: 120000 });
+async function openPensionResult(page: Page, testInfo: TestInfo): Promise<void> {
+  await page.goto(RESULT_URL, { timeout: 120000 });
   await page.waitForLoadState('domcontentloaded');
-  await skipIfSiteMaintenance(page, testInfo, '연금복권 메인 페이지');
+  await skipIfSiteMaintenance(page, testInfo, '연금복권 추첨결과 페이지');
 }
 
 async function openPensionPurchaseHistory(page: Page, testInfo: TestInfo): Promise<boolean> {
@@ -118,29 +119,25 @@ test.describe('연금복권 720+ 당첨번호 조회 테스트 (로그인 불필
 
   test.beforeEach(async ({ page }, testInfo) => {
     attachNetworkGuard(page, testInfo);
-    await openPensionMain(page, testInfo);
+    await openPensionResult(page, testInfo);
   });
 
-  test('메인 페이지에서 연금복권 슬라이더가 표시된다', async ({ page }) => {
-    const swiperContainer = page.locator('.swiper.wf720');
+  test('추첨결과 페이지에서 연금복권 슬라이더가 표시된다', async ({ page }) => {
+    const swiperContainer = page.locator('.wf720Swiper');
     await expect(swiperContainer).toBeAttached({ timeout: 30000 });
   });
 
   test('당첨 번호 슬라이드에서 회차 정보를 추출할 수 있다', async ({ page }) => {
-    const roundText = await page.locator('.swiper.wf720 .wf720-round').first().textContent();
-    expect(roundText).toMatch(/\d+회/);
+    const activeSlide = page.locator('.wf720Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+    const roundText = await activeSlide.locator('.psltEpsd').first().textContent();
+    expect(roundText).toMatch(/\d+/);
   });
 
   test('1등 당첨 조 번호가 1~5 범위이다', async ({ page }) => {
-    const groupList = page.locator('.swiper.wf720 .wf720-list .pension-jo');
-    const hasGroup = (await groupList.count()) > 0;
-
-    if (!hasGroup) {
-      test.skip(true, '연금복권 조 정보가 표시되지 않아 테스트를 건너뜁니다.');
-      return;
-    }
-
-    const groupElement = groupList.first();
+    const activeSlide = page.locator('.wf720Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+    const groupElement = activeSlide.locator('.result-wfBall').nth(0).locator('.wf-ball.pension-jo').first();
     await expect(groupElement).toBeVisible({ timeout: 30000 });
 
     const groupText = await groupElement.textContent();
@@ -151,8 +148,12 @@ test.describe('연금복권 720+ 당첨번호 조회 테스트 (로그인 불필
   });
 
   test('1등 당첨 번호가 6자리이다', async ({ page }) => {
-    const firstPrizeList = page.locator('.swiper.wf720 .wf720-list').first();
-    const winningBalls = firstPrizeList.locator('.rightArea .wf-ball');
+    const activeSlide = page.locator('.wf720Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+    const winningBalls = activeSlide
+      .locator('.result-wfBall')
+      .nth(0)
+      .locator('.wf-ball:not(.pension-jo)');
 
     const count = await winningBalls.count();
     expect(count).toBe(6);
@@ -166,8 +167,12 @@ test.describe('연금복권 720+ 당첨번호 조회 테스트 (로그인 불필
   });
 
   test('보너스 번호가 6자리이다', async ({ page }) => {
-    const bonusList = page.locator('.swiper.wf720 .wf720-list').nth(1);
-    const bonusBalls = bonusList.locator('.rightArea .wf-ball');
+    const activeSlide = page.locator('.wf720Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+    const bonusBalls = activeSlide
+      .locator('.result-wfBall')
+      .nth(1)
+      .locator('.wf-ball:not(.pension-jo)');
 
     const count = await bonusBalls.count();
     expect(count).toBe(6);
@@ -181,7 +186,9 @@ test.describe('연금복권 720+ 당첨번호 조회 테스트 (로그인 불필
   });
 
   test('추첨일 정보가 표시된다', async ({ page }) => {
-    const dateText = await page.locator('.swiper.wf720 .wf720-date').first().textContent();
+    const activeSlide = page.locator('.wf720Swiper .swiper-slide-active');
+    await activeSlide.waitFor({ state: 'attached', timeout: 30000 });
+    const dateText = await activeSlide.locator('.result-date').first().textContent();
     expect(dateText).toMatch(/\d{4}\.\d{2}\.\d{2}/);
   });
 });
