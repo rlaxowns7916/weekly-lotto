@@ -1,7 +1,7 @@
 /**
  * 당첨 번호 조회 모듈
  *
- * 동행복권 메인 페이지에서 최근 회차 당첨 번호를 가져옵니다.
+ * 동행복권 로또 6/45 추첨결과 페이지에서 최근 회차 당첨 번호를 가져옵니다.
  */
 
 import type { Page } from 'playwright';
@@ -10,14 +10,15 @@ import { AppError } from '../../../shared/utils/error.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 
 /**
- * 동행복권 메인 페이지 URL
+ * 동행복권 로또 6/45 추첨결과 페이지 URL
+ *
+ * 2026-04 기준: `/main`은 간소화 페이지로 전환되어 더 이상 당첨 번호 슬라이더를 노출하지 않는다.
+ * 추첨결과는 `/lt645/result` 경로에서 `lt645Swiper` 컴포넌트로 제공된다.
  */
-const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
+const RESULT_PAGE_URL = 'https://www.dhlottery.co.kr/lt645/result';
 
 /**
- * 메인 페이지에서 최신 당첨 번호 조회
- *
- * 메인 페이지의 Lotto 6/45 슬라이더에서 가장 최근 회차 정보를 파싱합니다.
+ * 추첨결과 페이지에서 최신 당첨 번호 조회
  *
  * @param page Playwright Page
  * @returns 당첨 번호 정보 (데이터 없음 시 null, 에러 시 throw)
@@ -25,20 +26,16 @@ const MAIN_PAGE_URL = 'https://www.dhlottery.co.kr/main';
 export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumbers | null> {
   return await withRetry(
     async () => {
-      // 메인 페이지로 이동
-      await page.goto(MAIN_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
+      await page.goto(RESULT_PAGE_URL, { waitUntil: 'networkidle', timeout: 60000 });
 
-      // 로또 6/45 슬라이더가 로드될 때까지 대기
-      const swiperContainer = page.locator('.swiper.lt645');
+      const swiperContainer = page.locator('.lt645Swiper');
       await swiperContainer.waitFor({ state: 'attached', timeout: 30000 });
 
-      // active 슬라이드 찾기
-      const activeSlide = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox.swiper-slide-active');
+      const activeSlide = page.locator('.lt645Swiper .swiper-slide-active');
       const isVisible = await activeSlide.isVisible().catch(() => false);
 
       if (!isVisible) {
-        // active가 없으면 마지막 슬라이드 시도
-        const allSlides = page.locator('.swiper.lt645 .swiper-slide.lt645-inbox');
+        const allSlides = page.locator('.lt645Swiper .swiper-slide');
         const count = await allSlides.count();
         if (count === 0) {
           throw new AppError({
@@ -63,11 +60,21 @@ export async function fetchLatestWinningNumbers(page: Page): Promise<WinningNumb
 
 /**
  * 슬라이드에서 당첨 번호 파싱
+ *
+ * 새 DOM 구조:
+ *   .result-infoWrap
+ *     .infoWrap-topBox
+ *       .result-txt > .ltEpsd        (회차)
+ *       .result-date                  (추첨일)
+ *     .result-ballWrapper
+ *       .result-ballBox
+ *         .result-ball x6             (당첨번호)
+ *         <figure>+ icon</figure>     (구분자)
+ *         .result-ball x1             (보너스 번호)
  */
 async function parseWinningSlide(slide: ReturnType<Page['locator']>): Promise<WinningNumbers | null> {
   try {
-    // 회차 추출 (예: "1207회")
-    const roundText = await slide.locator('.lt645-round').textContent();
+    const roundText = await slide.locator('.ltEpsd').first().textContent();
     const roundMatch = roundText?.match(/(\d+)/);
     const round = roundMatch ? parseInt(roundMatch[1], 10) : 0;
 
@@ -76,12 +83,10 @@ async function parseWinningSlide(slide: ReturnType<Page['locator']>): Promise<Wi
       return null;
     }
 
-    // 날짜 추출 (예: "2026.01.17")
-    const dateText = await slide.locator('.lt645-date').textContent();
+    const dateText = await slide.locator('.result-date').first().textContent();
     const drawDate = dateText ? parseDrawDate(dateText.trim()) : new Date();
 
-    // 번호 추출 (.lt-ball 요소들)
-    const ballElements = slide.locator('.lt645-list .lt-ball');
+    const ballElements = slide.locator('.result-ballBox .result-ball');
     const ballCount = await ballElements.count();
 
     if (ballCount < 7) {
@@ -91,13 +96,7 @@ async function parseWinningSlide(slide: ReturnType<Page['locator']>): Promise<Wi
 
     const allNumbers: number[] = [];
     for (let i = 0; i < ballCount; i++) {
-      const ballEl = ballElements.nth(i);
-
-      // plus 이미지는 건너뛰기
-      const isPlus = await ballEl.locator('img[alt="+"]').count() > 0;
-      if (isPlus) continue;
-
-      const numText = await ballEl.textContent();
+      const numText = await ballElements.nth(i).textContent();
       const num = parseInt(numText?.trim() || '0', 10);
       if (num >= 1 && num <= 45) {
         allNumbers.push(num);
@@ -109,7 +108,6 @@ async function parseWinningSlide(slide: ReturnType<Page['locator']>): Promise<Wi
       return null;
     }
 
-    // 앞 6개가 당첨번호, 마지막이 보너스
     const numbers = allNumbers.slice(0, 6).sort((a, b) => a - b);
     const bonusNumber = allNumbers[6];
 
@@ -128,7 +126,7 @@ async function parseWinningSlide(slide: ReturnType<Page['locator']>): Promise<Wi
 }
 
 /**
- * 날짜 문자열 파싱 (예: "2026.01.17")
+ * 날짜 문자열 파싱 (예: "2026.04.25" 또는 "2026.04.25 추첨")
  */
 function parseDrawDate(dateStr: string): Date {
   const match = dateStr.match(/(\d{4})\.(\d{2})\.(\d{2})/);
