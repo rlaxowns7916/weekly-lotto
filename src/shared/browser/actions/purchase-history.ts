@@ -38,6 +38,40 @@ export const LOTTERY_PRODUCTS = {
 export type LotteryProduct = (typeof LOTTERY_PRODUCTS)[LotteryProductCode];
 
 /**
+ * 구매내역 페이지 진입 시 노출되는 알림 팝업 셀렉터
+ */
+const HISTORY_POPUP_SELECTORS = [
+  '.popup-wrap.on.msgPop',
+  '.pop-up-wrapper.w-alert.msgPop',
+];
+
+/**
+ * 페이지 진입 직후 알림 팝업이 떠 있으면 닫는다.
+ * 팝업이 떠 있으면 '1주일' 버튼을 가려 visible 대기가 실패한다.
+ */
+async function dismissHistoryPopup(page: Page): Promise<void> {
+  for (const selector of HISTORY_POPUP_SELECTORS) {
+    const popup = page.locator(selector);
+    const isVisible = await popup.isVisible().catch(() => false);
+    if (!isVisible) continue;
+
+    const confirmButton = popup.getByRole('button', { name: '확인' });
+    if ((await confirmButton.count()) > 0) {
+      await confirmButton.first().click().catch(() => {});
+    } else {
+      const closeButton = popup.locator('.btn-close, button:has-text("닫기"), button:has-text("확인")');
+      if ((await closeButton.count()) > 0) {
+        await closeButton.first().click().catch(() => {});
+      } else {
+        await popup.click().catch(() => {});
+      }
+    }
+
+    await popup.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+  }
+}
+
+/**
  * 구매 내역 페이지로 이동하고 상품 필터링
  *
  * @param page Playwright Page
@@ -57,23 +91,34 @@ export async function navigateToPurchaseHistory(
       await page.goto('https://www.dhlottery.co.kr/mypage/mylotteryledger', { timeout: 60000 });
       await page.waitForLoadState('networkidle');
 
-      // 페이지 최상단으로 스크롤 (상세 검색 버튼이 보이도록)
+      // 알림 팝업 dismiss (1주일 버튼을 가릴 수 있음)
+      await dismissHistoryPopup(page);
+
+      // 페이지 최상단으로 스크롤
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(500); // 렌더링 안정화
 
-      // 상세 검색 펼치기 (최근 1주일 버튼이 상세 검색 영역 안에 있음)
-      const detailBtn = page.getByRole('button', { name: '상세 검색 펼치기' });
-      if (await detailBtn.isVisible().catch(() => false)) {
-        await detailBtn.scrollIntoViewIfNeeded();
-        await detailBtn.click({ force: true });
-        await page.waitForTimeout(300); // 영역 펼쳐지는 애니메이션 대기
+      // 상세 검색 토글(구 UI)이 존재하면 '펼치기' 상태일 때만 클릭.
+      // 새 모바일 UI는 검색 영역이 항상 펼쳐져 있어 토글이 DOM에 없다.
+      const detailBtn = page.getByRole('button', { name: /상세 검색/ });
+      if ((await detailBtn.count()) > 0) {
+        const first = detailBtn.first();
+        if (await first.isVisible().catch(() => false)) {
+          const label = (await first.textContent().catch(() => '')) ?? '';
+          if (label.includes('펼치기')) {
+            await first.scrollIntoViewIfNeeded();
+            await first.click({ force: true });
+            await page.waitForTimeout(300); // 펼침 애니메이션 대기
+          }
+        }
       }
 
-      // 최근 1주일 버튼 클릭
-      const weekBtn = page.getByRole('button', { name: '최근 1주일' });
-      await weekBtn.waitFor({ state: 'visible', timeout: 10000 });
-      await weekBtn.scrollIntoViewIfNeeded();
-      await weekBtn.click({ force: true });
+      // 1주일 빠른 선택 버튼 클릭 (구 UI: "최근 1주일", 신 UI: "1주일")
+      const weekBtn = page.getByRole('button', { name: /^(최근 )?1주일$/ });
+      const weekFirst = weekBtn.first();
+      await weekFirst.waitFor({ state: 'visible', timeout: 30000 });
+      await weekFirst.scrollIntoViewIfNeeded();
+      await weekFirst.click({ force: true });
 
       // 복권 선택 드롭다운에서 상품 선택
       const selectBox = page.locator('#ltGdsSelect');
@@ -81,7 +126,7 @@ export async function navigateToPurchaseHistory(
       await selectBox.selectOption(productCode);
 
       // 검색 버튼 클릭 + API 응답 대기
-      const searchBtn = page.getByRole('button', { name: '검색', exact: true });
+      const searchBtn = page.locator('#btnSrch');
       await searchBtn.waitFor({ state: 'visible', timeout: 10000 });
 
       await Promise.all([
@@ -89,7 +134,7 @@ export async function navigateToPurchaseHistory(
           (resp) => resp.url().includes('selectMyLotteryledger.do') && resp.status() === 200,
           { timeout: 30000 }
         ),
-        searchBtn.click(),
+        searchBtn.click({ force: true }),
       ]);
 
       console.log(`${product.name} 구매 내역 페이지 이동 완료`);
