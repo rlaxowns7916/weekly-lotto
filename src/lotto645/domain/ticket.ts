@@ -3,7 +3,7 @@
  */
 
 // 날짜 유틸리티 re-export (하위 호환성 유지)
-export { parseSaleDate, isWithinMinutes } from '../../shared/utils/date.js';
+export { parseSaleDate, isWithinMinutes, KST_TIME_ZONE } from '../../shared/utils/date.js';
 
 /** 티켓 구매 모드 */
 export type Lotto645Mode = 'auto' | 'semi-auto' | 'manual';

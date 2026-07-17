@@ -9,7 +9,7 @@
 
 import type { Page, Locator } from 'playwright';
 import type { PurchasedTicket } from '../../domain/ticket.js';
-import { parseSaleDate, isWithinMinutes } from '../../domain/ticket.js';
+import { parseSaleDate, isWithinMinutes, KST_TIME_ZONE } from '../../domain/ticket.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
 import { withRetry } from '../../../shared/utils/retry.js';
 import {
@@ -420,6 +420,7 @@ export function printTicketsSummary(tickets: PurchasedTicket[]): void {
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
+            timeZone: KST_TIME_ZONE,
           })
         : '';
       console.log(

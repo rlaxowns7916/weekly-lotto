@@ -5,6 +5,14 @@
  */
 
 /**
+ * 동행복권 사이트 기준 타임존
+ *
+ * 날짜를 사람이 읽는 형식으로 출력할 때는 항상 이 값을 명시한다.
+ * 생략하면 실행 환경(CI는 UTC)의 로컬 타임존을 따라간다.
+ */
+export const KST_TIME_ZONE = 'Asia/Seoul';
+
+/**
  * 발행일 문자열 파싱 (예: "2026/01/24 (토) 18:20:39")
  *
  * 동행복권 사이트의 시간은 KST(UTC+9)이므로 타임존 정보 포함
@@ -37,6 +45,9 @@ export function isWithinMinutes(saleDate: string, minutes: number): boolean {
 /**
  * ISO 날짜를 한국어 형식으로 포맷
  *
+ * 타임존을 KST로 명시한다. 생략하면 실행 환경의 로컬 타임존을 따르므로
+ * UTC로 도는 CI 러너에서 발행일시가 9시간 어긋나 표시된다.
+ *
  * @param isoDate ISO 8601 형식 날짜 문자열
  * @returns 한국어 형식 문자열 (예: "2026. 01. 24. (토) 오후 06:20")
  */
@@ -51,6 +62,7 @@ export function formatDateKorean(isoDate: string | undefined): string {
       hour: '2-digit',
       minute: '2-digit',
       weekday: 'short',
+      timeZone: KST_TIME_ZONE,
     });
   } catch {
     return isoDate;

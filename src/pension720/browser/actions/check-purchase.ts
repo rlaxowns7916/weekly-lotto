@@ -9,7 +9,7 @@ import type { PurchasedPensionTicket, PensionGroup } from '../../domain/ticket.j
 import { isValidGroup, formatPensionNumber } from '../../domain/ticket.js';
 import { saveErrorScreenshot } from '../../../shared/browser/context.js';
 import { withRetry } from '../../../shared/utils/retry.js';
-import { parseSaleDate, isWithinMinutes } from '../../../shared/utils/date.js';
+import { parseSaleDate, isWithinMinutes, KST_TIME_ZONE } from '../../../shared/utils/date.js';
 import {
   navigateToPurchaseHistory as navigateToHistory,
   LOTTERY_PRODUCTS,
@@ -379,6 +379,7 @@ export function printTicketsSummary(tickets: PurchasedPensionTicket[]): void {
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
+            timeZone: KST_TIME_ZONE,
           })
         : '';
       console.log(
