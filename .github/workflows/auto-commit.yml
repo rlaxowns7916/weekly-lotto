@@ -8,6 +8,11 @@ on:
   # 수동 실행 가능
   workflow_dispatch:
 
+# 커밋 메시지의 date가 러너 기본값(UTC)이 아닌 KST 날짜를 쓰도록 고정한다.
+# (schedule cron 자체는 GitHub 규칙상 항상 UTC로 해석된다.)
+env:
+  TZ: Asia/Seoul
+
 jobs:
   auto-commit:
     runs-on: ubuntu-latest
