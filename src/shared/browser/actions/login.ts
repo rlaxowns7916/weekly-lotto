@@ -71,6 +71,104 @@ async function waitForLoginInterferenceToClear(page: Page, timeoutMs: number): P
   });
 }
 
+type LoginOutcome = 'success' | 'password_expiry' | 'wrong_credentials' | 'timeout';
+
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'TimeoutError';
+}
+
+/**
+ * 로그인 제출 후 도달한 상태를 판별한다.
+ *
+ * 비밀번호 만료 안내로 이동한 경우 세션은 아직 인증 완료 상태가 아니므로
+ * 성공과 구분해서 보고한다.
+ */
+async function waitForLoginOutcome(page: Page, timeoutMs: number): Promise<LoginOutcome> {
+  const candidates: Array<{ signal: Promise<unknown>; outcome: LoginOutcome }> = [
+    {
+      // 로그인 완료의 유일한 양성 신호
+      signal: page
+        .locator(loginSelectors.logoutButton)
+        .waitFor({ state: 'visible', timeout: timeoutMs }),
+      outcome: 'success',
+    },
+    {
+      // 만료 안내는 URL로 판별한다. '#btnCancel'은 다른 페이지에도 존재할 수 있어
+      // 버튼 존재만으로는 이 페이지에 있다고 단정할 수 없다.
+      signal: page.waitForURL(
+        (url) => url.href.includes(loginSelectors.passwordExpiryNotice.urlFragment),
+        { timeout: timeoutMs }
+      ),
+      outcome: 'password_expiry',
+    },
+    {
+      // 안내 문구는 페이지에 중복 노출될 수 있어 first()로 좁힌다
+      signal: page
+        .locator('text=아이디 또는 비밀번호를 확인해주세요')
+        .first()
+        .waitFor({ state: 'visible', timeout: timeoutMs }),
+      outcome: 'wrong_credentials',
+    },
+    {
+      signal: page
+        .locator('text=비밀번호를 입력하세요')
+        .first()
+        .waitFor({ state: 'visible', timeout: timeoutMs }),
+      outcome: 'wrong_credentials',
+    },
+  ];
+
+  // 각 분기에 개별 핸들러를 달아 unhandled rejection을 만들지 않으면서,
+  // 타임아웃이 아닌 오류(strict mode 위반 등)는 삼키지 않고 드러낸다.
+  // 이 오류를 숨기면 셀렉터가 깨져도 'timeout'으로 보여 원인 파악이 불가능해진다.
+  return new Promise<LoginOutcome>((resolve, reject) => {
+    let pending = candidates.length;
+
+    for (const { signal, outcome } of candidates) {
+      signal.then(
+        () => resolve(outcome),
+        (error: unknown) => {
+          if (!isTimeoutError(error)) {
+            reject(error);
+            return;
+          }
+
+          pending -= 1;
+          if (pending === 0) {
+            resolve('timeout');
+          }
+        }
+      );
+    }
+  });
+}
+
+/**
+ * 비밀번호 변경안내에서 '다음에 변경'을 눌러 유예하고 로그인을 완료시킨다.
+ *
+ * 유예에 성공하면 사이트가 loginSuccess.do로 리다이렉트하며 세션이 인증된다.
+ */
+async function deferPasswordExpiry(page: Page): Promise<void> {
+  const { urlFragment, deferButton } = loginSelectors.passwordExpiryNotice;
+
+  console.log('비밀번호 만료 안내 감지: "다음에 변경"으로 유예합니다');
+
+  await Promise.all([
+    page.waitForURL((url) => !url.href.includes(urlFragment), { timeout: 30000 }),
+    page.locator(deferButton).click({ timeout: 10000 }),
+  ]).catch((error) => {
+    throw new AppError({
+      code: 'DOM_SELECTOR_NOT_VISIBLE',
+      category: 'DOM',
+      retryable: true,
+      message: '로그인 실패: 비밀번호 만료 안내 유예 처리가 완료되지 않았습니다',
+      cause: error,
+    });
+  });
+
+  await page.waitForLoadState('domcontentloaded');
+}
+
 /**
  * 동행복권 사이트 로그인
  *
@@ -97,6 +195,14 @@ export async function login(page: Page): Promise<void> {
       await page.waitForLoadState('domcontentloaded');
       await waitForLoginInterferenceToClear(page, 10000);
 
+      // 재시도로 재진입했을 때 이미 세션이 살아있으면 로그인 페이지로 돌아가지 않는다.
+      // 로그인 상태로 /login에 가면 리다이렉트되어 아이디 입력칸을 찾지 못한다.
+      if (await isLocatorVisible(page, loginSelectors.logoutButton, 2000)) {
+        console.log('이미 로그인된 세션입니다');
+        console.log(`로그인 후 URL: ${page.url()}`);
+        return;
+      }
+
       await page.goto(loginSelectors.url, { timeout: 60000 });
       await page.waitForLoadState('domcontentloaded');
       await waitForLoginInterferenceToClear(page, 45000);
@@ -119,18 +225,14 @@ export async function login(page: Page): Promise<void> {
       await passwordInput.press('Enter');
       await waitForLoginInterferenceToClear(page, 30000);
 
-      // 로그인 결과 대기: 로그아웃 버튼(성공) 또는 에러 메시지(실패)
-      const result = await Promise.race([
-        page.getByRole('button', { name: '로그아웃' })
-          .waitFor({ state: 'visible', timeout: 60000 })
-          .then(() => 'success' as const),
-        page.locator('text=아이디 또는 비밀번호를 확인해주세요')
-          .waitFor({ state: 'visible', timeout: 60000 })
-          .then(() => 'wrong_credentials' as const),
-        page.locator('text=비밀번호를 입력하세요')
-          .waitFor({ state: 'visible', timeout: 60000 })
-          .then(() => 'wrong_credentials' as const),
-      ]).catch(() => 'timeout' as const);
+      // 로그인 결과 대기: 로그아웃 버튼(성공), 만료 안내, 또는 에러 메시지(실패)
+      let result = await waitForLoginOutcome(page, 60000);
+
+      // 만료 안내는 아직 인증 전 상태이므로 유예 후 결과를 다시 판별한다
+      if (result === 'password_expiry') {
+        await deferPasswordExpiry(page);
+        result = await waitForLoginOutcome(page, 30000);
+      }
 
       if (result === 'success') {
         console.log('로그인 성공');
@@ -149,21 +251,24 @@ export async function login(page: Page): Promise<void> {
         });
       }
 
-      // 타임아웃 - URL로 재확인
-      const currentUrl = page.url();
-      if (!currentUrl.includes('login') && !currentUrl.includes('Login')) {
-        console.log('로그인 성공 (URL 확인)');
-        console.log(`로그인 후 URL: ${currentUrl}`);
-        // 로그인 후 페이지에서 바로 버튼 찾기 (메인 페이지로 이동하지 않음)
-        return;
+      if (result === 'password_expiry') {
+        // 유예 후에도 안내가 남아있음 (유예 처리 자체가 거부된 상태)
+        throw new AppError({
+          code: 'DOM_SELECTOR_NOT_VISIBLE',
+          category: 'DOM',
+          retryable: true,
+          message: '로그인 실패: 비밀번호 만료 안내 유예 후에도 인증이 완료되지 않았습니다',
+        });
       }
 
-      // 사이트 느림으로 인한 실패 - 재시도 가능
+      // 타임아웃 - 로그아웃 버튼을 확인하지 못했다는 것은 인증 미완료라는 뜻이다.
+      // URL만 보고 성공으로 추정하면(과거 구현) 만료 안내 같은 미인증 인터스티셜을
+      // 성공으로 오판해 이후 단계가 세션 만료로 실패한다.
       throw new AppError({
         code: 'NETWORK_NAVIGATION_TIMEOUT',
         category: 'NETWORK',
         retryable: true,
-        message: '로그인 타임아웃: 사이트 응답 또는 대기열 해제가 지연됩니다',
+        message: `로그인 실패: 로그인 완료를 확인하지 못했습니다 (URL: ${page.url()})`,
       });
     },
     {

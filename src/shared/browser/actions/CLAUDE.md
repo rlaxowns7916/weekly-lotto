@@ -22,6 +22,12 @@ Schema-Version: SRTE-DOCS-1
 - 유효성 규칙:
   - 로그인은 `LOTTO_USERNAME`, `LOTTO_PASSWORD`가 없으면 실패한다.
   - 로그인은 `https://www.dhlottery.co.kr/` 선접속 후 `https://www.dhlottery.co.kr/login` 이동 순서를 따른다.
+  - 로그인 완료 판별은 `#logoutBtn` 가시성을 유일한 양성 신호로 사용한다(헤더에 '로그아웃' 텍스트 요소가 복수라 role/text 조회는 strict mode 위반).
+  - URL만으로 로그인 성공을 추정하지 않는다. `#logoutBtn` 미확인은 인증 미완료로 처리한다.
+  - 로그인 직후 `/mbrsrvc/ExpryPswdNoti`(비밀번호 변경안내)로 이동하면 세션은 미인증 상태이며, `#btnCancel`('다음에 변경')로 유예해야 인증이 완료된다.
+  - 만료 안내 판별은 URL(`ExpryPswdNoti`) 기준이며, 버튼 존재만으로 판단하지 않는다.
+  - 대기 실패(`TimeoutError`)가 아닌 오류는 삼키지 않고 노출한다.
+  - 이미 세션이 살아있으면(`#logoutBtn` 가시) 로그인 페이지로 재진입하지 않는다.
   - 로그인 입력/제출 단계 전후로 `#waitPage`, `#isWaitPage`, `#ajax_loading`, `.popup-bg.over.loadingOverlay`가 hidden 상태여야 다음 단계로 진행한다.
   - `#isRejectPage` 또는 `#isNotUse`가 visible이면 접속 차단 상태로 실패한다.
   - 구매내역 이동은 최근 1주일 + 상품코드 필터를 적용한다.
@@ -32,6 +38,9 @@ Schema-Version: SRTE-DOCS-1
 
 ## 행동 시나리오
 - SCN-001: Given 유효 자격 증명, When `login` 호출, Then `visitedUrls[0]="https://www.dhlottery.co.kr/"` and `visitedUrls[1] contains "/login"` and `loginSuccess=true` and (`logoutButtonVisible=true` or `url contains "main"`).
+- SCN-004: Given 비밀번호 만료로 로그인 후 `/mbrsrvc/ExpryPswdNoti`로 이동한 상태, When `login` 호출, Then `deferButtonClicked=true` and `url not contains "ExpryPswdNoti"` and `loginSuccess=true`.
+- SCN-005: Given 만료 안내에서 유예 처리가 완료되지 않는 상태, When `login` 호출, Then `error.code=DOM_SELECTOR_NOT_VISIBLE` and `error.retryable=true`.
+- SCN-006: Given 로그인 제출 후 `#logoutBtn`이 확인되지 않는 미인증 페이지에 도달, When `login` 호출, Then `loginSuccess=false` and `error.code=NETWORK_NAVIGATION_TIMEOUT` and `error.retryable=true`.
 - SCN-002: Given 대기열/오버레이 간섭이 지속되어 로그인 단계 진행이 불가한 상태, When `login` 호출, Then `retryAttempted=true` and `error.code=NETWORK_NAVIGATION_TIMEOUT` and `error.retryable=true` and `exceptionRaised=true` on final failure.
 - SCN-003: Given 구매내역 페이지 접근 지연/오류, When `navigateToPurchaseHistory` 호출, Then `retryAttempted=true` and `error.code=NETWORK_NAVIGATION_TIMEOUT` and `exceptionRaised=true` on final failure.
 
@@ -70,6 +79,8 @@ flowchart LR
 ## 수용 기준
 - [ ] 공통 로그인 함수가 계정 누락/성공/실패를 구분한다.
 - [ ] 공통 로그인 함수가 선접속 순서(`https://www.dhlottery.co.kr/` -> `/login`)를 유지한다.
+- [ ] 공통 로그인 함수가 비밀번호 만료 안내를 감지해 유예 처리 후 인증 완료를 재확인한다.
+- [ ] 공통 로그인 함수가 URL 추정이 아닌 `#logoutBtn` 양성 신호로만 성공을 판정한다.
 - [ ] 로그인 단계에서 대기열/오버레이 간섭 상태를 감지하고 해제 대기를 수행한다.
 - [ ] 로그인 접속 차단 상태를 `NETWORK_NAVIGATION_TIMEOUT` + `retryable=false`로 분류한다.
 - [ ] 구매내역 이동 함수가 상품 코드 필터 적용까지 완료한다.
