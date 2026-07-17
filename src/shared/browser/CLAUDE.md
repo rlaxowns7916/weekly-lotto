@@ -9,7 +9,7 @@ Schema-Version: SRTE-DOCS-1
 - 포함: 브라우저 세션 생성/종료(`createBrowserSession`, `closeBrowserSession`).
 - 포함: 에러 스크린샷 저장(`saveErrorScreenshot`).
 - 포함: 실패 시점 HTML 스냅샷 저장(메인/프레임).
-- 포함: 로그인 셀렉터/URL 상수 제공(홈페이지 warm-up URL + 로그인 페이지 URL).
+- 포함: 로그인 셀렉터/URL 상수 제공(홈페이지 warm-up URL + 로그인 페이지 URL + 로그아웃 버튼 + 비밀번호 만료 안내 셀렉터).
 - 비포함: 로그인 절차 실행, 구매내역 탐색, 도메인별 액션 실행.
 
 ## 공개 인터페이스 계약
@@ -27,7 +27,7 @@ Schema-Version: SRTE-DOCS-1
   - `BrowserSession`(`browser`, `context`, `page`).
   - `string | null` 스크린샷 경로.
   - HTML 스냅샷 결과(`html.main.path`, `html.frames[]`, `html.status`).
-  - `loginSelectors`(`homeUrl`, `url`, 입력 role/name).
+  - `loginSelectors`(`homeUrl`, `url`, 입력 role/name, `logoutButton`, `passwordExpiryNotice`).
 
 ## 행동 시나리오
 - SCN-001: Given 실행 옵션, When 브라우저 세션 생성 호출, Then `session.browser!=null` and `session.page!=null`.
