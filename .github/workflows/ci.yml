@@ -6,9 +6,15 @@ on:
   push:
     branches: [main]
 
+# 러너 기본값은 UTC다. 동행복권은 KST 기준으로 동작하므로
+# 날짜/요일에 의존하는 로직(발행일 표시, 추첨일 당일 판정, 연금복권 조 선택)이
+# 어긋나지 않도록 실행 타임존을 KST로 고정한다.
+env:
+  TZ: Asia/Seoul
+
 jobs:
   lint-and-typecheck:
-    name: Lint & Type Check
+    name: Lint, Type Check & Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -29,6 +35,9 @@ jobs:
 
       - name: Run TypeScript type check
         run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
 
   e2e-test:
     name: E2E Tests

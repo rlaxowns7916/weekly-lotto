@@ -6,7 +6,7 @@ Schema-Version: SRTE-DOCS-1
 재시도, 날짜, HTML 이스케이프 규칙을 공통화한다.
 
 ## 기능 범위/비범위
-- 포함: `withRetry`, `parseSaleDate`, `isWithinMinutes`, `formatDateKorean`, `isToday`, `formatDateDot`, `escapeHtml`.
+- 포함: `withRetry`, `parseSaleDate`, `isWithinMinutes`, `formatDateKorean`, `isToday`, `formatDateDot`, `escapeHtml`, `KST_TIME_ZONE`.
 - 포함: `buildFailureEmailTemplate` 공통 실패 이메일 HTML 빌더.
 - 포함: `handleCommandFailure` 공통 커맨드 실패 처리(스크린샷/HTML/OCR 아티팩트 수집 → 로깅 → 이메일 전송 → exit).
 - 포함: OCR 텍스트 힌트 -> 운영 에러 코드 매핑 유틸.
@@ -22,6 +22,8 @@ Schema-Version: SRTE-DOCS-1
   - `parseSaleDate`는 사이트 문자열 패턴 미일치 시 `null` 반환.
   - `isValid` 개념 함수는 없음(입력 검증은 호출자 책임).
   - `escapeHtml`은 `& < > " '`를 엔티티로 치환.
+  - 날짜를 사람이 읽는 형식으로 출력할 때는 `timeZone: KST_TIME_ZONE`을 명시한다(생략 시 실행 환경 로컬 타임존을 따라간다).
+  - `isToday`/`formatDateDot`은 실행 환경 로컬 타임존 기준으로 동작하므로, 실행 환경이 KST임을 전제한다(워크플로우는 `TZ: Asia/Seoul`로 고정).
 - 출력 타입/필드:
   - 재시도 성공 시 원본 함수 결과, 실패 시 마지막 오류 throw.
   - 문자열 포맷 결과 또는 boolean 판정 값.
@@ -30,6 +32,7 @@ Schema-Version: SRTE-DOCS-1
 ## 행동 시나리오
 - SCN-001: Given 일시적 네트워크 오류 함수, When `withRetry` 호출, Then `attemptCount<=maxRetries+1` and (`resultReturned=true` or (`errorThrown=true` and `retry.lastErrorMessage!=null`)).
 - SCN-002: Given 형식 불일치 발행일 문자열, When `parseSaleDate` 호출, Then `returnValue=null`.
+- SCN-004: Given 프로세스가 UTC 환경에서 실행(CI 러너), When `formatDateKorean`으로 KST 발행일시를 포맷, Then `output=KST 기준 시각` and `output!=UTC 기준 시각`.
 - SCN-003: Given OCR 텍스트에 점검/차단 키워드 포함, When 힌트 매핑 함수를 호출, Then `ocr.hintCode!=UNKNOWN_UNCLASSIFIED` and `ocr.hintCode!=null`.
 
 ## 오류 계약
@@ -66,6 +69,7 @@ flowchart LR
 ## 수용 기준
 - [ ] 재시도 유틸이 지수 백오프/지터 정책을 적용한다.
 - [ ] 날짜 유틸이 사이트 문자열 형식 기준 동작을 제공한다.
+- [ ] 날짜 표시 함수가 실행 환경 타임존과 무관하게 KST 기준으로 출력한다.
 - [ ] HTML 이스케이프 함수가 특수문자 치환을 수행한다.
 - [ ] `withRetry` 최종 실패에 `retry.lastErrorMessage`와 분류 코드가 포함된다.
 - [ ] OCR 힌트 매핑이 `UNKNOWN_UNCLASSIFIED` fallback을 포함해 결정형으로 동작한다.
