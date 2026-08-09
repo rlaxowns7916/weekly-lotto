@@ -35,6 +35,10 @@ interface PageMockOptions {
   landingUrl?: string;
   /** '#logoutBtn' 조회가 strict mode 위반을 일으킴 */
   logoutButtonAmbiguous?: boolean;
+  /** 로그인 폼이 없는 간소화(주말/혼잡) 페이지가 노출됨 */
+  simplifiedServicePage?: boolean;
+  /** 로그인 폼(아이디 입력창)이 끝내 표시되지 않음 (간소화 페이지 아님) */
+  loginFormMissing?: boolean;
 }
 
 function createPageMock(options: PageMockOptions = {}) {
@@ -75,6 +79,21 @@ function createPageMock(options: PageMockOptions = {}) {
 
   const usernameLocator = inputLocator(usernameFillMock);
   const passwordLocator = inputLocator(passwordFillMock);
+
+  // 간소화 페이지 또는 폼 미표시 상황에서는 아이디 입력칸이 끝내 보이지 않는다
+  if (options.simplifiedServicePage || options.loginFormMissing) {
+    usernameLocator.waitFor = vi.fn(async () => {
+      throw timeoutError('아이디 입력칸이 표시되지 않습니다');
+    });
+  }
+
+  const visibleLocator = {
+    waitFor: vi.fn(async () => {}),
+    click: vi.fn(async () => {}),
+    first() {
+      return this;
+    },
+  };
 
   const logoutLocator = {
     waitFor: vi.fn(async () => {
@@ -135,6 +154,12 @@ function createPageMock(options: PageMockOptions = {}) {
   const locatorMock = vi.fn((selector: string) => {
     if (selector === '#logoutBtn') return logoutLocator;
     if (selector === '#btnCancel') return deferLocator;
+    if (
+      options.simplifiedServicePage &&
+      (selector.includes('간소화 페이지') || selector.includes('모바일 구매가 제한'))
+    ) {
+      return visibleLocator;
+    }
     return invisibleLocator;
   });
 
@@ -268,6 +293,46 @@ describe('shared/browser/actions/login', () => {
 
     expect(result.ok).toBe(false);
     expect(result.error?.message).toContain('strict mode violation');
+  });
+
+  // 회귀 방지: 주말/혼잡 시 로그인 폼이 없는 간소화 페이지가 뜨면,
+  // 아이디 입력 타임아웃을 4회 재시도하며 '아이디' 문구 때문에
+  // AUTH_INVALID_CREDENTIALS로 오분류됐다. 재시도 없이 정확한 원인으로 실패해야 한다.
+  it('fails fast (no retry) with a clear reason on the simplified service page', async () => {
+    getConfigMock.mockReturnValue(validConfig);
+
+    const { page, gotoMock, usernameFillMock } = createPageMock({ simplifiedServicePage: true });
+
+    const result = (await runLoginSkippingBackoff(page)) as {
+      ok: boolean;
+      error?: { code?: string; retryable?: boolean; message?: string };
+    };
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe('NETWORK_NAVIGATION_TIMEOUT');
+    expect(result.error?.retryable).toBe(false);
+    expect(result.error?.message).toContain('간소화 페이지');
+    // 자격증명 입력 단계에 도달하지 않는다 (AUTH 오분류 방지)
+    expect(usernameFillMock).not.toHaveBeenCalled();
+    // 재시도하지 않으므로 goto는 홈 + 로그인 1회씩(총 2회)만 호출된다
+    expect(gotoMock).toHaveBeenCalledTimes(2);
+  });
+
+  // 회귀 방지: 로그인 폼 미표시를 raw Playwright 오류로 던지면
+  // 메시지의 '아이디' 문구 때문에 AUTH_INVALID_CREDENTIALS로 오분류된다.
+  it('classifies a missing login form as NETWORK, not AUTH', async () => {
+    getConfigMock.mockReturnValue(validConfig);
+
+    const { page } = createPageMock({ loginFormMissing: true });
+
+    const result = (await runLoginSkippingBackoff(page)) as {
+      ok: boolean;
+      error?: { code?: string };
+    };
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe('NETWORK_NAVIGATION_TIMEOUT');
+    expect(result.error?.code).not.toBe('AUTH_INVALID_CREDENTIALS');
   });
 
   it('throws AUTH_INVALID_CREDENTIALS when credentials are missing', async () => {

@@ -26,6 +26,21 @@ async function isLocatorVisible(page: Page, selector: string, timeoutMs = 800): 
     .catch(() => false);
 }
 
+/**
+ * 로그인 폼이 없는 간소화 서비스 페이지인지 판별한다.
+ *
+ * 주말·혼잡 시간대에는 동행복권이 안내만 있는 간소화 페이지를 노출하며,
+ * 아이디 입력칸이 존재하지 않아 재시도해도 로그인할 수 없다.
+ */
+async function isSimplifiedServicePage(page: Page): Promise<boolean> {
+  const visibility = await Promise.all(
+    loginSelectors.simplifiedServiceNotice.markers.map((selector) =>
+      isLocatorVisible(page, selector, 800)
+    )
+  );
+  return visibility.some(Boolean);
+}
+
 async function waitForLoginInterferenceToClear(page: Page, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
 
@@ -211,7 +226,36 @@ export async function login(page: Page): Promise<void> {
       const usernameInput = page.getByRole(loginSelectors.usernameInput.role, {
         name: loginSelectors.usernameInput.name,
       });
-      await usernameInput.waitFor({ state: 'visible', timeout: 30000 });
+      const usernameVisible = await usernameInput
+        .waitFor({ state: 'visible', timeout: 30000 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (!usernameVisible) {
+        // 로그인 폼이 뜨지 않았다. raw Playwright 타임아웃을 그대로 던지면
+        // 메시지의 '아이디' 문구 때문에 AUTH_INVALID_CREDENTIALS로 오분류되므로
+        // 원인을 구분해 정확한 AppError로 던진다.
+        if (await isSimplifiedServicePage(page)) {
+          // 주말·혼잡 시간대 간소화 페이지: 로그인 폼 자체가 없어 재시도는 무의미하다.
+          throw new AppError({
+            code: 'NETWORK_NAVIGATION_TIMEOUT',
+            category: 'NETWORK',
+            retryable: false,
+            message:
+              '로그인 실패: 동행복권이 간소화 페이지를 운영 중입니다 ' +
+              '(주말·혼잡 시간대 모바일 로그인/구매 제한). 평일 정상 운영 시간에 재시도하세요.',
+          });
+        }
+
+        // 그 외 폼 미표시는 사이트 지연/일시 장애로 보고 재시도를 허용한다.
+        throw new AppError({
+          code: 'NETWORK_NAVIGATION_TIMEOUT',
+          category: 'NETWORK',
+          retryable: true,
+          message: '로그인 실패: 로그인 폼(아이디 입력창)이 표시되지 않습니다',
+        });
+      }
+
       await usernameInput.click();
       await usernameInput.fill(username);
 
