@@ -24,4 +24,15 @@ export const depositSelectors = {
   // 충전 내역 조회 (스크린샷에서 확인됨)
   chargeHistoryTab: 'text=충전 내역 조회',
   chargeHistoryEntry: 'text=간편충전',
+
+  // 예치금 잔액 (mndpChrg에서 실측 확인됨)
+  //   <div class="list-charge-wrap">
+  //     <span class="txt-title gray">예치금</span>
+  //     <span class="txt-amount"><span id="tooltipTotalAmt">0</span>원</span>
+  // 순서대로 시도하고 모두 실패하면 본문 텍스트 스캔으로 폴백한다.
+  balanceCandidates: [
+    '#tooltipTotalAmt',
+    '.list-charge-wrap .txt-amount',
+    '.txt-amount',
+  ],
 } as const;

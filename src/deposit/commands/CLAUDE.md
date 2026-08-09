@@ -22,7 +22,7 @@ Schema-Version: SRTE-DOCS-1
 - 유효성 규칙:
   - `DRY_RUN`이 `'false'`일 때만 실제 충전을 시도한다.
 - 출력 타입/필드:
-  - 콘솔 로그.
+  - 콘솔 로그(실충전 시 충전 전/후 예치금과 잔액 검증 판정 포함).
   - 실패 시 `process.exit(1)`.
   - 실패 진단(`ocr.status`, `ocr.hintCode`, `html.main.path`, `html.frames[]`).
   - 조건부 이메일 전송 결과.
@@ -30,9 +30,10 @@ Schema-Version: SRTE-DOCS-1
 ## 행동 시나리오
 - SCN-001: Given 유효 계정과 정상 네트워크, When `deposit:charge` 명령 실행, Then `processExitCode=0` and `output contains "완료"`.
 - SCN-002: Given 로그인/충전/OCR 중 예외 발생, When 커맨드가 실패를 감지, Then `processExitCode=1` and `error.code!=null` and `output contains "실패"`.
+- SCN-003: Given 실충전 성공, When 커맨드가 결과를 출력, Then `output contains "충전 전 예치금"` and `output contains "충전 후 예치금"`.
 
 ## 오류 계약
-- 에러 코드: `AUTH_INVALID_CREDENTIALS`, `NETWORK_NAVIGATION_TIMEOUT`, `KEYPAD_OCR_FAILED`, `DEPOSIT_CHARGE_FAILED`, `UNKNOWN_UNCLASSIFIED`.
+- 에러 코드: `AUTH_INVALID_CREDENTIALS`, `NETWORK_NAVIGATION_TIMEOUT`, `KEYPAD_OCR_FAILED`, `DEPOSIT_CHARGE_FAILED`, `DEPOSIT_VERIFICATION_FAILED`, `UNKNOWN_UNCLASSIFIED`.
 - HTTP status(해당 시): 없음.
 - 재시도 가능 여부: 가능(하위 액션의 재시도 유틸 사용).
 - 발생 조건: 로그인 실패, 충전 실패, 키패드 OCR 실패, 이메일 전송 실패.

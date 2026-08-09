@@ -10,10 +10,40 @@ import { buildFailureEmailTemplate, type EmailTemplateResult } from '../../share
 /**
  * 충전 성공 이메일 템플릿
  */
+/** 잔액을 못 읽었을 때도 메일 표기가 깨지지 않도록 통일한다 */
+function formatBalance(balance: number | null | undefined): string {
+  return balance === null || balance === undefined ? '확인 불가' : `${balance.toLocaleString()}원`;
+}
+
 export function chargeSuccessTemplate(result: ChargeResult): EmailTemplateResult {
   const subject = `[예치금 충전 완료] ${result.amount.toLocaleString()}원 충전 성공`;
-  const statusLabel = result.status === 'dry_run' ? '테스트(DRY_RUN)' : '충전 완료';
+  const verifiedByBalance = result.verification?.verdict === 'charged';
+  const statusLabel =
+    result.status === 'dry_run'
+      ? '테스트(DRY_RUN)'
+      : verifiedByBalance
+        ? '충전 완료 (잔액 확인됨)'
+        : result.verification
+          ? '충전 완료 (잔액 미검증)'
+          : '충전 완료';
   const timestampStr = result.timestamp.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+
+  // 잔액을 수집한 실충전 경로에서만 대조 결과를 노출한다 (DRY_RUN은 미수집)
+  const balanceRowsHtml = result.balance
+    ? `
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666;">충전 전 예치금</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #eee; font-weight: 600; text-align: right;">${formatBalance(result.balance.before)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666;">충전 후 예치금</td>
+            <td style="padding: 12px 0; border-bottom: 1px solid #eee; font-weight: 600; text-align: right;">${formatBalance(result.balance.after)}</td>
+          </tr>`
+    : '';
+
+  const balanceRowsText = result.balance
+    ? `충전 전 예치금: ${formatBalance(result.balance.before)}\n충전 후 예치금: ${formatBalance(result.balance.after)}\n`
+    : '';
 
   const html = `
 <!DOCTYPE html>
@@ -59,6 +89,7 @@ export function chargeSuccessTemplate(result: ChargeResult): EmailTemplateResult
             <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666;">상태</td>
             <td style="padding: 12px 0; border-bottom: 1px solid #eee; font-weight: 600; text-align: right;">${statusLabel}</td>
           </tr>
+${balanceRowsHtml}
           <tr>
             <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666;">충전 시각</td>
             <td style="padding: 12px 0; border-bottom: 1px solid #eee; font-weight: 600; text-align: right;">${timestampStr}</td>
@@ -89,7 +120,7 @@ export function chargeSuccessTemplate(result: ChargeResult): EmailTemplateResult
 
 충전 금액: ${result.amount.toLocaleString()}원
 상태: ${statusLabel}
-충전 시각: ${timestampStr}
+${balanceRowsText}충전 시각: ${timestampStr}
 OCR 신뢰도: ${(result.keypadOcrConfidence * 100).toFixed(1)}%
 
 ---
