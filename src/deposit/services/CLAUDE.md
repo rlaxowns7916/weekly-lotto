@@ -18,6 +18,8 @@ Schema-Version: SRTE-DOCS-1
   - 실패 템플릿 입력 `errorSummary`는 필수.
 - 유효성 규칙:
   - 성공 템플릿은 금액과 OCR 신뢰도를 표시한다.
+  - 성공 템플릿은 `result.balance`가 있을 때만 충전 전/후 예치금 행을 노출한다(DRY_RUN은 미수집).
+  - 잔액으로 확인되지 않은 성공은 상태 라벨에 `잔액 미검증`을 표기한다.
   - 실패 템플릿은 오류 문자열을 `escapeHtml`로 이스케이프한다(공통 빌더 내부 처리).
 - 출력 타입/필드:
   - `EmailTemplateResult`: `{ subject, html, text }`.
@@ -52,3 +54,4 @@ Schema-Version: SRTE-DOCS-1
 ## 수용 기준
 - [ ] 성공/실패 템플릿이 `subject`/`html`/`text`를 모두 반환한다.
 - [ ] 실패 템플릿이 `buildFailureEmailTemplate` 공통 빌더를 사용한다.
+- [ ] 성공 템플릿이 충전 전/후 예치금과 잔액 검증 여부를 표시한다.

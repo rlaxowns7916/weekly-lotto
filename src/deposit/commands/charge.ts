@@ -47,6 +47,13 @@ export async function main(): Promise<void> {
     } else {
       console.log('\n충전 완료!');
       console.log(`   충전 금액: ${result.amount.toLocaleString()}원`);
+      if (result.balance) {
+        const format = (balance: number | null): string =>
+          balance === null ? '확인 불가' : `${balance.toLocaleString()}원`;
+        console.log(`   충전 전 예치금: ${format(result.balance.before)}`);
+        console.log(`   충전 후 예치금: ${format(result.balance.after)}`);
+        console.log(`   잔액 검증: ${result.verification?.verdict ?? 'unknown'}`);
+      }
       console.log(`   OCR 신뢰도: ${(result.keypadOcrConfidence * 100).toFixed(1)}%`);
 
       if (hasEmailConfig()) {
