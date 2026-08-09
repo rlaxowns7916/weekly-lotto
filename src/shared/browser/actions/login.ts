@@ -206,8 +206,12 @@ export async function login(page: Page): Promise<void> {
 
   await withRetry(
     async () => {
-      await page.goto(loginSelectors.homeUrl, { timeout: 60000 });
-      await page.waitForLoadState('domcontentloaded');
+      // 'load'(goto 기본값)는 이미지/광고/트래커까지 기다린다. 동행복권 홈에서
+      // 서브리소스 하나가 매달리면 60초를 통째로 소모하므로 DOM 준비까지만 기다린다.
+      await page.goto(loginSelectors.homeUrl, {
+        timeout: 60000,
+        waitUntil: 'domcontentloaded',
+      });
       await waitForLoginInterferenceToClear(page, 10000);
 
       // 재시도로 재진입했을 때 이미 세션이 살아있으면 로그인 페이지로 돌아가지 않는다.
@@ -218,8 +222,10 @@ export async function login(page: Page): Promise<void> {
         return;
       }
 
-      await page.goto(loginSelectors.url, { timeout: 60000 });
-      await page.waitForLoadState('domcontentloaded');
+      await page.goto(loginSelectors.url, {
+        timeout: 60000,
+        waitUntil: 'domcontentloaded',
+      });
       await waitForLoginInterferenceToClear(page, 45000);
 
       // 아이디 입력

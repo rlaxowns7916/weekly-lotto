@@ -46,7 +46,7 @@ function createPageMock(options: PageMockOptions = {}) {
   let expiryPending = options.passwordExpiry === true;
   let loggedIn = false;
 
-  const gotoMock = vi.fn(async (url: string) => {
+  const gotoMock = vi.fn(async (url: string, _options?: Record<string, unknown>) => {
     currentUrl = url;
   });
 
@@ -233,6 +233,22 @@ describe('shared/browser/actions/login', () => {
     expect(usernameFillMock).toHaveBeenCalledWith('demo-user');
     expect(passwordFillMock).toHaveBeenCalledWith('demo-pass');
     expect(page.url()).toBe(MAIN_URL);
+  });
+
+  // 회귀 방지: goto의 기본 대기는 'load'라 이미지/광고/트래커까지 기다린다.
+  // 동행복권 홈에서 서브리소스 하나가 매달리면 60초를 통째로 날리고 4회 재시도까지
+  // 소진한다(run 31286747638). 바로 다음 줄의 waitForLoadState가 보여주듯
+  // 의도한 대기 조건은 'domcontentloaded'다.
+  it('waits only for domcontentloaded when navigating', async () => {
+    getConfigMock.mockReturnValue(validConfig);
+
+    const { page, gotoMock } = createPageMock();
+
+    await login(page);
+
+    for (const [, options] of gotoMock.mock.calls) {
+      expect(options).toMatchObject({ waitUntil: 'domcontentloaded' });
+    }
   });
 
   it('defers the password expiry notice and completes login', async () => {

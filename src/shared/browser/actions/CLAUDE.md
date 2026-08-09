@@ -22,6 +22,7 @@ Schema-Version: SRTE-DOCS-1
 - 유효성 규칙:
   - 로그인은 `LOTTO_USERNAME`, `LOTTO_PASSWORD`가 없으면 실패한다.
   - 로그인은 `https://www.dhlottery.co.kr/` 선접속 후 `https://www.dhlottery.co.kr/login` 이동 순서를 따른다.
+  - 로그인 경로의 `page.goto`는 `waitUntil: 'domcontentloaded'`를 명시한다. 기본값 `'load'`는 이미지/광고/트래커까지 기다려 서브리소스 하나로 60초 타임아웃과 전체 재시도 소진을 유발한다.
   - 로그인 완료 판별은 `#logoutBtn` 가시성을 유일한 양성 신호로 사용한다(헤더에 '로그아웃' 텍스트 요소가 복수라 role/text 조회는 strict mode 위반).
   - URL만으로 로그인 성공을 추정하지 않는다. `#logoutBtn` 미확인은 인증 미완료로 처리한다.
   - 로그인 직후 `/mbrsrvc/ExpryPswdNoti`(비밀번호 변경안내)로 이동하면 세션은 미인증 상태이며, `#btnCancel`('다음에 변경')로 유예해야 인증이 완료된다.
@@ -79,6 +80,7 @@ flowchart LR
 ## 수용 기준
 - [ ] 공통 로그인 함수가 계정 누락/성공/실패를 구분한다.
 - [ ] 공통 로그인 함수가 선접속 순서(`https://www.dhlottery.co.kr/` -> `/login`)를 유지한다.
+- [ ] 공통 로그인 함수의 모든 `goto` 호출이 `waitUntil: 'domcontentloaded'`를 명시한다.
 - [ ] 공통 로그인 함수가 비밀번호 만료 안내를 감지해 유예 처리 후 인증 완료를 재확인한다.
 - [ ] 공통 로그인 함수가 URL 추정이 아닌 `#logoutBtn` 양성 신호로만 성공을 판정한다.
 - [ ] 로그인 단계에서 대기열/오버레이 간섭 상태를 감지하고 해제 대기를 수행한다.
