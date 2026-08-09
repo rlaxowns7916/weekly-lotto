@@ -19,6 +19,9 @@ videos/
 trace.zip
 auth.json
 
+# Tesseract가 실행 시 내려받는 학습 데이터 (5MB)
+*.traineddata
+
 # Environment
 .env
 .env.local
