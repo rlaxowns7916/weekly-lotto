@@ -70,6 +70,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: deposit-error-screenshots
-          path: screenshots/
+          path: |
+            screenshots/
+            artifacts/html-failures/
           retention-days: 7
           if-no-files-found: ignore

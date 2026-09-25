@@ -47,9 +47,41 @@ interface PageMockOptions {
   dialogTimesOut?: boolean;
 }
 
+/**
+ * 실측 mndpChrg는 `<span id="tooltipTotalAmt">0</span>`을 내려주고 실제 잔액은
+ * 비동기 요청으로 채운다. 페이지 이동 직후에는 placeholder 0이 보이고,
+ * 네트워크가 잠잠해진 뒤에야 실제 잔액이 보인다.
+ */
+function simulateAsyncBalance(page: Page, balances: { before: number; after: number[] }): void {
+  const mock = page as unknown as {
+    goto: ReturnType<typeof vi.fn>;
+    waitForLoadState: ReturnType<typeof vi.fn>;
+  };
+  let populated = true;
+  let reads = 0;
+
+  mock.goto.mockImplementation(async () => {
+    populated = false;
+  });
+  mock.waitForLoadState.mockImplementation(async (state: string) => {
+    if (state === 'networkidle') {
+      populated = true;
+    }
+  });
+  readDepositBalanceMock.mockImplementation(async () => {
+    if (!populated) {
+      return 0;
+    }
+    const value = reads === 0 ? balances.before : balances.after[Math.min(reads - 1, balances.after.length - 1)];
+    reads++;
+    return value;
+  });
+}
+
 function createPageMock(options: PageMockOptions = {}) {
   const page = {
     goto: vi.fn(async () => {}),
+    waitForLoadState: vi.fn(async () => {}),
     reload: vi.fn(async () => {}),
     waitForTimeout: vi.fn(async () => {}),
     url: () => depositSelectors.chargePageUrl,
@@ -149,11 +181,10 @@ describe('deposit/browser/actions/charge', () => {
 
   // 잔액이 그대로면 충전은 확실히 미발생이므로 재시도해도 안전하다.
   it('retries when the balance is unchanged, then succeeds once the balance grows', async () => {
-    readDepositBalanceMock
-      .mockResolvedValueOnce(10000)
-      .mockResolvedValueOnce(10000)
-      .mockResolvedValueOnce(10000)
-      .mockResolvedValueOnce(30000);
+    // 첫 제출은 반영되지 않고(폴링 내내 그대로), 두 번째 제출에서 반영된다
+    readDepositBalanceMock.mockImplementation(async () =>
+      inputPasswordMock.mock.calls.length >= 2 ? 30000 : 10000
+    );
 
     const settled = await runChargeSkippingBackoff(createPageMock({ dialogTimesOut: true }));
 
@@ -229,6 +260,34 @@ describe('deposit/browser/actions/charge', () => {
 
     expect(settled.ok).toBe(false);
     expect((settled.error as { code?: string }).code).toBe('DEPOSIT_VERIFICATION_FAILED');
+    expect(inputPasswordMock).toHaveBeenCalledTimes(1);
+  });
+
+  // run 35482588809 재현: 충전은 됐는데 이동 직후 placeholder 0을 읽어
+  // '충전 전 0원 → 충전 후 0원'으로 오판했다.
+  it('reads the populated balance after charging instead of the placeholder 0', async () => {
+    const page = createPageMock();
+    simulateAsyncBalance(page, { before: 0, after: [20000] });
+
+    const settled = await runChargeSkippingBackoff(page);
+
+    expect(settled.ok).toBe(true);
+    expect(settled.result?.balance).toEqual({ before: 0, after: 20000 });
+    expect(settled.result?.verification?.verdict).toBe('charged');
+  });
+
+  // 사이트 안내: '비밀번호가 확인되면 예치금으로 바로 충전됩니다.(최대 5분 소요)'
+  it('keeps polling the balance until the charge is reflected', async () => {
+    readDepositBalanceMock
+      .mockResolvedValueOnce(10000)
+      .mockResolvedValueOnce(10000)
+      .mockResolvedValueOnce(10000)
+      .mockResolvedValueOnce(30000);
+
+    const settled = await runChargeSkippingBackoff(createPageMock());
+
+    expect(settled.ok).toBe(true);
+    expect(settled.result?.balance).toEqual({ before: 10000, after: 30000 });
     expect(inputPasswordMock).toHaveBeenCalledTimes(1);
   });
 });
