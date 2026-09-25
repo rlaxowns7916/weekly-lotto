@@ -29,6 +29,8 @@ Schema-Version: SRTE-DOCS-1
   - `readDepositBalance`는 후보 셀렉터(`depositSelectors.balanceCandidates`)를 순서대로 시도하고, 모두 실패하면 본문 텍스트를 스캔한다.
   - `readDepositBalance`는 어떤 경우에도 예외를 던지지 않고 실패 시 `null`을 반환한다.
   - 충전 성공 판정은 완료 다이얼로그가 아니라 충전 전/후 잔액 대조를 1순위 근거로 사용한다.
+  - 충전 후 잔액은 페이지 재조회 후 `networkidle`까지 기다린 뒤 읽는다(잔액 자리 placeholder `0`이 비동기로 채워진다).
+  - 충전 전 잔액을 읽은 경우, 충전 후 잔액이 `before + 충전금액` 이상이 될 때까지 최대 10회(30초 간격) 재조회한다.
 - 출력 타입/필드:
   - `Promise<ChargeResult>` (`chargeDeposit`) — `balance`, `verification`, `dialogConfirmed` 포함.
   - `Promise<number | null>` (`readDepositBalance`).
@@ -47,6 +49,8 @@ Schema-Version: SRTE-DOCS-1
 - SCN-012: Given `inputPassword`가 예외를 던졌지만 잔액이 충전 금액 이상 증가(마지막 탭에서 자동 제출됨), When `chargeDeposit(page, false)`를 호출, Then `status='success'` and `inputPasswordCallCount=1`.
 - SCN-013: Given `inputPassword`가 예외를 던졌고 잔액이 그대로, When `chargeDeposit(page, false)`를 호출, Then `error.code='DEPOSIT_CHARGE_FAILED'` and `error.message contains 원본 입력 오류`.
 - SCN-014: Given DRY_RUN 모드, When `chargeDeposit(page, true)`를 호출, Then `balance.before`가 수집되고 `balance.after=null` and 비밀번호 미제출. (실충전 전 잔액 조회 경로를 무료로 검증하기 위함)
+- SCN-015: Given 페이지 이동 직후 잔액이 placeholder `0`이고 `networkidle` 이후 실제 잔액이 채워짐, When `chargeDeposit(page, false)`를 호출, Then `balance.after`는 채워진 실제 잔액이고 `verification.verdict='charged'`.
+- SCN-016: Given 충전 후 잔액 반영이 지연됨, When `chargeDeposit(page, false)`를 호출, Then 잔액이 충전 금액 이상 증가할 때까지 재조회하고 `inputPasswordCallCount=1`.
 
 ## 오류 계약
 - 에러 코드: `AUTH_INVALID_CREDENTIALS`, `NETWORK_NAVIGATION_TIMEOUT`, `KEYPAD_OCR_FAILED`, `DEPOSIT_CHARGE_FAILED`, `DEPOSIT_VERIFICATION_FAILED`.

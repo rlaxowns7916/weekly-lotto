@@ -132,18 +132,60 @@ async function confirmChargeDialog(page: Page): Promise<boolean> {
   return true;
 }
 
+/** 잔액 반영 대기: 사이트 안내상 최대 5분이 걸릴 수 있다 */
+const BALANCE_POLL_ATTEMPTS = 10;
+const BALANCE_POLL_INTERVAL_MS = 30000;
+const BALANCE_NETWORK_IDLE_TIMEOUT_MS = 15000;
+
 /**
- * 충전 후 잔액을 다시 읽는다.
+ * 충전 페이지를 새로 받아 잔액을 읽는다.
  *
- * 사이트가 잔액을 비동기로 갱신할 수 있어 페이지를 새로 받아 조회한다.
- * 비밀번호 제출 이후이므로 예외를 던지지 않는다.
+ * mndpChrg는 잔액 자리에 placeholder `0`을 두고 비동기 요청으로 채운다.
+ * domcontentloaded 직후 읽으면 실제 잔액과 무관하게 0을 읽으므로
+ * 네트워크가 잠잠해질 때까지 기다린 뒤 읽는다.
  */
-async function readBalanceAfterCharge(page: Page): Promise<number | null> {
+async function reloadAndReadBalance(page: Page): Promise<number | null> {
   await page
     .goto(depositSelectors.chargePageUrl, { timeout: 30000, waitUntil: 'domcontentloaded' })
     .catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: BALANCE_NETWORK_IDLE_TIMEOUT_MS })
+    .catch(() => undefined);
 
   return readDepositBalance(page);
+}
+
+/**
+ * 충전 후 잔액을 읽는다.
+ *
+ * 사이트가 잔액을 늦게 반영할 수 있어, 충전 금액만큼 늘어날 때까지 일정 간격으로
+ * 다시 읽는다. 충전 전 잔액을 모르면 기다릴 기준이 없으므로 한 번만 읽는다.
+ * 비밀번호 제출 이후이므로 예외를 던지지 않는다.
+ */
+async function readBalanceAfterCharge(
+  page: Page,
+  before: number | null,
+  depositAmount: number,
+): Promise<number | null> {
+  let after = await reloadAndReadBalance(page);
+  if (before === null) {
+    return after;
+  }
+
+  const expected = before + depositAmount;
+  for (let attempt = 2; attempt <= BALANCE_POLL_ATTEMPTS; attempt++) {
+    if (after !== null && after >= expected) {
+      break;
+    }
+    console.log(
+      `잔액 반영 대기 중 (${attempt - 1}/${BALANCE_POLL_ATTEMPTS - 1}): 현재 ${formatBalance(after)}, ` +
+        `기대 ${formatBalance(expected)} 이상`,
+    );
+    await page.waitForTimeout(BALANCE_POLL_INTERVAL_MS).catch(() => undefined);
+    after = await reloadAndReadBalance(page);
+  }
+
+  return after;
 }
 
 /**
@@ -240,7 +282,7 @@ async function executeCharge(page: Page, depositAmount: number, depositPassword:
 
     const dialogConfirmed = await confirmChargeDialog(page);
 
-    const after = await readBalanceAfterCharge(page);
+    const after = await readBalanceAfterCharge(page, before, depositAmount);
     console.log(`충전 후 예치금: ${formatBalance(after)}`);
 
     const verification = verifyChargeByBalance({ before, after, amount: depositAmount });
