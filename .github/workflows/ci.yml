@@ -15,7 +15,8 @@ env:
 jobs:
   lint-and-typecheck:
     name: Lint, Type Check & Unit Tests
-    runs-on: ubuntu-latest
+    # ubuntu-latest가 Ubuntu 26으로 마이그레이션되면서 호환성 문제 방지를 위해 24.04로 고정
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -41,7 +42,8 @@ jobs:
 
   e2e-test:
     name: E2E Tests
-    runs-on: ubuntu-latest
+    # ubuntu-latest가 Ubuntu 26으로 마이그레이션되면서 Playwright 미지원 오류가 발생하므로 24.04로 고정
+    runs-on: ubuntu-24.04
     needs: lint-and-typecheck
 
     steps:
